@@ -1,30 +1,46 @@
 <template>
-  <nav>
-    <router-link to="/">Home</router-link> |
-    <router-link to="/about">About</router-link>
-  </nav>
-  <router-view/>
+  <v-app id="inspire">
+
+    <v-app-bar>
+      <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+
+      <v-app-bar-title>Controle de investimentos</v-app-bar-title>
+    </v-app-bar>
+
+    <v-navigation-drawer
+      v-model="drawer"
+      permanent
+    >
+
+    <v-list nav>
+      <v-list-item prepend-icon="mdi-wallet" title="Carteiras" value="carteiras" to="/carteiras"></v-list-item>
+      <v-list-item prepend-icon="mdi-factory" title="Tickers" value="tickers" to="/tickers"></v-list-item>
+      <v-list-item prepend-icon="mdi-cog" title="Tipos de Operação" value="tiposoperacao" to="/tiposoperacao"></v-list-item>
+      <v-list-item prepend-icon="mdi-cog" title="Tipos de Provento" value="tiposprovento" to="/tiposprovento"></v-list-item>
+    </v-list>    
+    
+    </v-navigation-drawer>
+
+    <v-main class="bg-grey-lighten-2">
+      <v-container>
+        <router-view />
+      </v-container>
+    </v-main>
+  </v-app>
 </template>
 
-<style lang="scss">
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-}
+<script setup>
+  import { ref } from 'vue'
 
-nav {
-  padding: 30px;
+  const drawer = ref(null)
+</script>
 
-  a {
-    font-weight: bold;
-    color: #2c3e50;
-
-    &.router-link-exact-active {
-      color: #42b983;
-    }
+<script>
+  export default {
+    data: () => (
+      { 
+        drawer: null,
+      }
+    ),
   }
-}
-</style>
+</script>
