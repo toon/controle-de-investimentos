@@ -221,12 +221,12 @@ export default {
     dialogDelete: false,
     editedIndex: -1,
     editedItem: {
-      data: '',
+      data: '11/11/2023',
       ticker: '',
       tipooperacao: '',
-      quantidade: '',
-      valor_unitario: '',
-      taxas: '',
+      quantidade: '100',
+      valor_unitario: '1',
+      taxas: '0',
       TickerId: '',
       TipoOperacaoId: '',
       CarteiraId: ''

@@ -17,6 +17,7 @@
       <v-list-item prepend-icon="mdi-factory" title="Tickers" value="tickers" to="/tickers"></v-list-item>
       <v-list-item prepend-icon="mdi-cog" title="Tipos de Operação" value="tiposoperacao" to="/tiposoperacao"></v-list-item>
       <v-list-item prepend-icon="mdi-cog" title="Tipos de Provento" value="tiposprovento" to="/tiposprovento"></v-list-item>
+      <v-list-item prepend-icon="mdi-cog" title="Carregar CSV" value="carregarcsv" to="/carregarcsv"></v-list-item>
     </v-list>    
     
     </v-navigation-drawer>
@@ -36,11 +37,11 @@
 </script>
 
 <script>
-  export default {
-    data: () => (
-      { 
-        drawer: null,
-      }
-    ),
-  }
+export default {
+  data: () => (
+    { 
+      drawer: null,
+    }
+  ),
+}
 </script>
