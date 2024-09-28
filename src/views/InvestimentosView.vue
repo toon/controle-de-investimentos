@@ -6,35 +6,110 @@
       item-value="id"
       show-expand
     >
-      <template v-slot:top>
-        <v-toolbar flat>
-            <v-toolbar-title>
-                <v-icon>mdi-monitor-dashboard</v-icon>
-                <v-btn
-                color="green"
-                icon="mdi-refresh-circle"
-                density="comfortable" 
-                @click="fetchMultipleStockQuotes"
-                ></v-btn>
+        <template v-slot:top>
+            <v-toolbar flat>
+                <v-toolbar-title>
+                    <v-icon>mdi-monitor-dashboard</v-icon>
+                    <v-btn
+                    color="green"
+                    icon="mdi-refresh-circle"
+                    density="comfortable" 
+                    @click="fetchMultipleStockQuotes"
+                    ></v-btn>
 
-                Investimentos {{ CarteiraNome }} 
+                    Investimentos {{ CarteiraNome }} 
                 </v-toolbar-title>
-        </v-toolbar>
-      </template>
-      <template v-slot:expanded-row="{ columns, item }">
-        <tr>
-          <td :colspan="columns.length">
-            More info about {{ item.id }}
-          </td>
-        </tr>
-      </template>
+            </v-toolbar>
+        </template>
+
+
+        <template v-slot:expanded-row="{ item, columns }">
+            <tr>
+                <td :colspan="columns.length">
+                    <v-table v-if="item.Operacoes && item.Operacoes.length > 0">
+                        <thead>
+                        <tr>
+                            <th class="text-left">
+                            Data compra
+                            </th>
+                            <th class="text-left">
+                            Preço compra
+                            </th>
+                            <th class="text-left">
+                            Quantidade
+                            </th>
+                            <th class="text-left">
+                            Valor compra
+                            </th>
+                            <th class="text-left">
+                            %
+                            </th>
+                            <th class="text-left">
+                            Valor atual
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr
+                            v-for="subitem in item.Operacoes"
+                            :key="subitem.id"
+                        >
+                            <td>{{ formatDate(subitem.data_compra) }}</td>
+                            <td>{{ formatCurrency(subitem.preco_compra) }}</td>
+                            <td>{{ subitem.quantidade }}</td>
+                            <td>{{ formatCurrency(subitem.quantidade * subitem.preco_compra) }}</td>
+                            <td>{{ ((1 - (subitem.preco_compra / item.cotacao))*100).toFixed(2) + "%" }}</td>
+                            <td>{{ formatCurrency(subitem.quantidade * item.cotacao) }}</td>
+                        </tr>
+                        </tbody>
+                    </v-table>
+                    <div v-else>
+                        <p class="text-center">Nenhuma operação encontrada para este ativo.</p>
+                    </div>
+                </td>
+            </tr>
+        </template>
+        
+        <template v-slot:item.atual="{ item }">
+            {{ formatCurrency(item.quantidade * item.cotacao) }}
+        </template>
+
+        <template v-slot:item.rendimento="{ item }">
+            <v-chip :style="{ color: ((((item.quantidade * item.cotacao)-item.investido)/item.investido*100).toFixed(2)) < 0 ? 'red' : ((((item.quantidade * item.cotacao)-item.investido)/item.investido*100).toFixed(2)) > 10 ? 'green' : 'black' }">
+                {{ (((item.quantidade * item.cotacao)-item.investido)/item.investido*100).toFixed(2) }}%
+            </v-chip>
+        </template>
+
+        <template v-slot:item.cotacao="{ item }">
+            {{ item.cotacao ? formatCurrency(item.cotacao) : 'N/A' }}
+        </template>
+      
+        <template v-slot:item.preco_medio="{ item }">
+            {{ item.preco_medio ? formatCurrency(item.preco_medio) : 'N/A' }}
+        </template>
+      
+        <template v-slot:item.investido="{ item }">
+            {{ item.investido ? formatCurrency(item.investido) : 'N/A' }}
+        </template>
+      
+        <template v-slot:item.proventos="{ item }">
+            {{ formatCurrency(item.proventos) }}
+        </template>
+      
     </v-data-table>
-  </template>
+</template>
 
 <script>
+import api from "../services/api";
+import stockService from "@/services/stockService";
+
 export default {
     data () {
         return {
+            symbols: [ "CMIN3.SA", "BBAS3.SA", "BBDC4.SA", "CMIG4.SA" ],
+            symbols_id: null,
+            multipleQuotes: 0,
+            carteiraid: null,
             expanded: [],
             headers: [
                 { title: "Ticker", key:"ticker", value: "Ticker.nome" },
@@ -94,7 +169,21 @@ export default {
                         "ativo": true,
                         "createdAt": "2024-09-17T02:02:18.000Z",
                         "updatedAt": "2024-09-17T02:02:18.000Z"
-                    }
+                    },
+                    "Operacoes": [
+                        {
+                            "id": 1,
+                            "data_compra": "2024-09-17T00:00:00.000Z",
+                            "preco_compra": 28,
+                            "quantidade": 300
+                        },
+                        {
+                            "id": 2,
+                            "data_compra": "2024-09-18T00:00:00.000Z",
+                            "preco_compra": 30,
+                            "quantidade": 14
+                        }
+                    ]
                 },
                 {
                     "id": 11,
@@ -145,89 +234,100 @@ export default {
                     }
                 }
             ],
-            desserts: [
-                {
-                name: 'Frozen Yogurt',
-                calories: 159,
-                fat: 6.0,
-                carbs: 24,
-                protein: 4.0,
-                iron: 1,
-                },
-                {
-                name: 'Ice cream sandwich',
-                calories: 237,
-                fat: 9.0,
-                carbs: 37,
-                protein: 4.3,
-                iron: 1,
-                },
-                {
-                name: 'Eclair',
-                calories: 262,
-                fat: 16.0,
-                carbs: 23,
-                protein: 6.0,
-                iron: 7,
-                },
-                {
-                name: 'Cupcake',
-                calories: 305,
-                fat: 3.7,
-                carbs: 67,
-                protein: 4.3,
-                iron: 8,
-                },
-                {
-                name: 'Gingerbread',
-                calories: 356,
-                fat: 16.0,
-                carbs: 49,
-                protein: 3.9,
-                iron: 16,
-                },
-                {
-                name: 'Jelly bean',
-                calories: 375,
-                fat: 0.0,
-                carbs: 94,
-                protein: 0.0,
-                iron: 0,
-                },
-                {
-                name: 'Lollipop',
-                calories: 392,
-                fat: 0.2,
-                carbs: 98,
-                protein: 0,
-                iron: 2,
-                },
-                {
-                name: 'Honeycomb',
-                calories: 408,
-                fat: 3.2,
-                carbs: 87,
-                protein: 6.5,
-                iron: 45,
-                },
-                {
-                name: 'Donut',
-                calories: 452,
-                fat: 25.0,
-                carbs: 51,
-                protein: 4.9,
-                iron: 22,
-                },
-                {
-                name: 'KitKat',
-                calories: 518,
-                fat: 26.0,
-                carbs: 65,
-                protein: 7,
-                iron: 6,
-                },
-            ],
         }
     },
+
+    watch: {
+
+        multipleQuotes: {
+            handler(novoValor) {
+                this.atualizaCotacoes();
+            },
+            deep: true
+        },
+
+        // multipleProventos: {
+        //     handler(novoValor) {
+        //         this.atualizaProventos();
+        //     },
+        //     deep: true
+        // },
+
+    },
+
+    created() {
+        this.carteiraid = this.$route.params.id;
+        this.loadItems();
+    },
+
+
+    methods: {
+
+        loadItems() {
+            // api.get(`/dashboards?CarteiraId=${this.carteiraid}`).then((response) => {
+            //     this.items = response.data;
+            //     // Extrair os tickers que foram recebidos
+            //     this.symbols = this.items.map(item => item.Ticker.nome);
+            //     // Extrair os códigos dos tickers que foram recebidos
+            //     this.symbols_id = this.items.map(item => item.Ticker.id);
+                // Invocar o método que recupera os dados de preço dos tickers
+                this.fetchMultipleStockQuotes();
+                // Invocar o método que recupera os proventos de cada ticker
+                // this.fetchMultipleProventos();
+            // });
+            // api.get(`/carteira?id=${this.carteiraid}`).then((response) => {
+            //     this.CarteiraNome = response.data[0]["nome"];
+            //     // console.log(response.data[0]["nome"]);
+            // });
+        },
+
+
+        atualizaCotacoes () {
+
+            // Itera sobre o primeiro array e adiciona o preço
+            this.items.forEach(item => {
+
+                // Busca o item correspondente pelo nome do ticker
+                const cotacao = this.multipleQuotes.find(c => c.ticker === item.Ticker.nome);
+                
+                // Se encontrar uma correspondência, adiciona o preço ao objeto
+                if (cotacao) {
+                    item.cotacao = cotacao.price;
+                    item.open = cotacao.open;
+                    item.high = cotacao.high;
+                    item.low = cotacao.low;
+                }
+                
+            });
+        },
+
+        async fetchMultipleStockQuotes() {
+            if (!this.symbols) return;
+            
+            try {
+                this.multipleQuotes = await stockService.getMultipleStockQuotes(this.symbols);
+            } catch (error) {
+                console.error('Erro ao buscar múltiplas cotações:', error);
+            }
+        },
+
+        formatDate(dateString) {
+            const date = new Date(dateString);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // Mês começa em 0
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        },
+
+        formatCurrency(value) {
+            // Formata o valor como moeda brasileira (R$)
+            return value.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            });
+        },
+
+
+    }
 }
 </script>
