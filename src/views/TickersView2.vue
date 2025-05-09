@@ -9,8 +9,8 @@
       <v-toolbar
         flat
       >
-        <v-toolbar-title><v-icon>mdi-factory</v-icon> Tickers</v-toolbar-title>
-        <v-divider
+      <v-toolbar-title><v-icon>mdi-factory</v-icon> Tickers</v-toolbar-title>
+      <v-divider
           class="mx-4"
           inset
           vertical
@@ -18,7 +18,7 @@
         <v-spacer></v-spacer>
         <v-dialog
           v-model="dialog"
-          max-width="500px"
+          max-width="600px"
         >
           <template v-slot:activator="{ props }">
             <v-btn
@@ -77,8 +77,6 @@
                       ></v-autocomplete>
                     </v-col>
 
-
-
                     <v-col
                       cols="12"
                       md="4"
@@ -91,7 +89,7 @@
                     </v-col>
                   </v-row>
                 </v-container>
-              </v-card-text>
+              </v-card-text>            
 
               <v-card-actions>
                 <v-spacer></v-spacer>
@@ -125,6 +123,15 @@
           </v-card>
         </v-dialog>
       </v-toolbar>
+    </template>
+    <template v-slot:item.data="{ item }">
+      {{ formatDate(item.data) }}
+    </template>
+    <template v-slot:item.valor_unitario="{ item }">
+      {{ formatCurrency(item.valor_unitario) }}
+    </template>
+    <template v-slot:item.total="{ item }">
+      {{ formatCurrency(item.total) }}
     </template>
     <template v-slot:item.actions="{ item }">
       <v-icon
@@ -162,6 +169,7 @@ import api from "../services/api";
 
 export default {
   data: () => ({
+    valid: false,
     items: [],
     tiposAtivo: [], // Armazena os tipos de operação recuperados da API
     headers: [
@@ -176,28 +184,27 @@ export default {
     dialogDelete: false,
     editedIndex: -1,
     editedItem: {
-      nome: '',
-      TipoAtivoId: '',
     },
     defaultItem: {
-      nome: ''
     },
     rules: {
       required: value => !!value || 'Campo obrigatório',
-      data: value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
     },
+
   }),
 
   computed: {
+
     formTitle () {
       return this.editedIndex === -1 ? 'Novo item' : 'Editar item'
     },
+
     dateRules() {
       return [
         value => !!value || 'Campo obrigatório',
-        value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
       ];
     },
+
   },
 
   watch: {
@@ -210,6 +217,7 @@ export default {
   },
 
   created() {
+    this.carteiraid = this.$route.params.id;
     this.loadItems();
     this.loadtiposAtivo();
   },
@@ -220,22 +228,25 @@ export default {
     loadtiposAtivo() {
       api.get("/tipoativo").then((response) => {
         this.tiposAtivo = response.data;
-        console.log(this.tiposAtivo);
+        // console.log(this.tiposProvento);
       }).catch(error => {
-        console.error("Erro ao carregar tipos de ativo:", error);
+        console.error("Erro ao carregar tipos de operação:", error);
       });
     },
 
+
     loadItems() {
-      api.get("/tickers").then((response) => {
+      api.get("/ticker").then((response) => {
         this.items = response.data;
         console.log(this.items);
       });
     },
-    
+
     editItem (item) {
       this.editedIndex = this.items.indexOf(item)
       this.editedItem = Object.assign({}, item)
+      this.formattedDate = this.formatDate(item.data)
+      console.log(this.editedItem)
       this.dialog = true
     },
 
@@ -246,7 +257,7 @@ export default {
     },
 
     deleteItemConfirm () {
-      api.delete(`/ticker/${this.editedItem.id}`).then(() => 
+      api.delete(`/provento/${this.editedItem.id}`).then(() => 
         this.loadItems(),
         this.closeDelete()
       );
@@ -254,6 +265,7 @@ export default {
 
     close () {
       this.dialog = false
+      this.formattedDate = "";
       this.$nextTick(() => {
         this.editedItem = Object.assign({}, this.defaultItem)
         this.editedIndex = -1
@@ -267,22 +279,22 @@ export default {
         this.editedIndex = -1
       })
     },
-
+    
     save () {
 
       this.$refs.form.validate().then((formResult) => {
 
         if (formResult.valid) {
 
-          //this.editedItem.data = this.formatDateToISO(this.formattedDate);
-          //this.editedItem.CarteiraId = this.carteiraid;
+          this.editedItem.data = this.formatDateToISO(this.formattedDate);
+          this.editedItem.CarteiraId = this.carteiraid;
           
           if (this.editedIndex > -1) {
-            api.put(`/ticker/${this.editedItem.id}`, this.editedItem).then(() => 
+            api.put(`/provento/${this.editedItem.id}`, this.editedItem).then(() => 
               this.loadItems()
             )
           } else {
-            api.post("/ticker", this.editedItem).then(() => 
+            api.post("/provento", this.editedItem).then(() => 
               this.loadItems()
             )
           }
@@ -292,19 +304,6 @@ export default {
       });      
 
     },
-
-/*    save () {
-      if (this.editedIndex > -1) {
-        api.put(`/ticker/${this.editedItem.id}`, this.editedItem).then(() => 
-          this.loadItems()
-        )
-      } else {
-        api.post("/ticker", this.editedItem).then(() => 
-          this.loadItems()
-        )
-      }
-      this.close()
-    },*/
   },
 }
 </script>

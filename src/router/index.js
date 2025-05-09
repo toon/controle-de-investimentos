@@ -56,6 +56,12 @@ const routes = [
     meta: { title: "Tipos de provento" }
   },
   {
+    path: "/tiposativo",
+    name: "tiposativo",
+    component: () => import("../views/TiposAtivoView.vue"),
+    meta: { title: "Tipos de ativo" }
+  },
+  {
     path: "/carregarcsv",
     name: "carregarcsv",
     component: () => import("../views/CarregarCSVView.vue"),
