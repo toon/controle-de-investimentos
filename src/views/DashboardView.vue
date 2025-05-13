@@ -3,7 +3,7 @@
   <v-data-table-virtual
     :headers="headers"
     :items="items"
-    :sort-by="[{ key: 'data', order: 'desc' }]"
+    :sort-by="[{ key: 'ticker', order: 'asc' }]"
   >
     <template v-slot:top>
       <v-toolbar
@@ -28,16 +28,19 @@
       </v-toolbar>
     </template>
     <template v-slot:item.preco_medio="{ item }">
-      {{ formatCurrency(item.preco_medio) }}
+      {{ formatCurrency(item.preco_medio, item.Ticker.MoedaId) }}
+    </template>
+    <template v-slot:item.lucro_realizado="{ item }">
+      {{ formatCurrency(item.lucro_realizado, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.investido="{ item }">
-      {{ formatCurrency(item.investido) }}
+      {{ formatCurrency(item.investido, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.atual="{ item }">
-      {{ formatCurrency(item.quantidade * item.cotacao) }}
+      {{ formatCurrency(item.quantidade * item.cotacao, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.cotacao="{ item }">
-      {{ item.cotacao ? formatCurrency(item.cotacao) : 'N/A' }}
+      {{ item.cotacao ? formatCurrency(item.cotacao, item.Ticker.MoedaId) : 'N/A' }}
     </template>
     <template v-slot:item.rendimento="{ item }">
       <v-chip :style="{ color: ((((item.quantidade * item.cotacao)-item.investido)/item.investido*100).toFixed(2)) < 0 ? 'red' : ((((item.quantidade * item.cotacao)-item.investido)/item.investido*100).toFixed(2)) > 10 ? 'green' : 'black' }">
@@ -45,10 +48,12 @@
       </v-chip>
     </template>
     <template v-slot:item.proventos="{ item }">
-      {{ formatCurrency(item.proventos) }}
+      {{ formatCurrency(item.proventos, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.hoje="{ item }">
-      {{ item.open ? ((1-item.cotacao/item.open)*100).toFixed(2) + "%" : "N/A" }}
+      <v-chip :style="{ color: ((1-item.cotacao/item.close)*100) < 0 ? 'red' : 'green' }">
+        {{ item.close ? ((1-item.cotacao/item.close)*100).toFixed(2) + "%" : "N/A" }}
+      </v-chip>
     </template>
     <template v-slot:no-data>
       <v-btn
@@ -83,6 +88,7 @@ export default {
       { title: "Atual", key: "atual", value: "atual" },
       { title: "Cotação", key: "cotacao", value: "cotacao" },
       { title: "Rendimento", key: "rendimento", value: "rendimento" },
+      { title: "Lucro", key: "lucro_realizado", value: "lucro_realizado" },
       { title: "Proventos", key: "proventos", value: "proventos" },
       { title: "% Hoje", key: "hoje", value: "hoje" },
     ],
@@ -155,11 +161,20 @@ export default {
               item.open = cotacao.open;
               item.high = cotacao.high;
               item.low = cotacao.low;
+              item.close = cotacao.close;
           }
           
       });
-    },
 
+      this.items = this.items.map(item => ({
+        ...item,
+        rendimento: this.calcularRendimento(item),
+        hoje: this.calcularHoje(item),
+      }));
+
+      console.log(this.items);
+
+    },
 
     atualizaProventos () {
 
@@ -176,7 +191,6 @@ export default {
           
       });
     },
-
 
     async fetchStockQuote() {
       if (!this.stockSymbol) return;
@@ -214,16 +228,58 @@ export default {
       }
     },
 
-    formatCurrency(value) {
+    formatCurrency(value, formato) {
       // Formata o valor como moeda brasileira (R$)
-      return value.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      });
+      if (formato == 1) {
+        return value.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL'
+        });
+      } else if (formato == 2) {
+        return value.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD'
+        });
+      }
+    },
+    
+    calcularRendimento(item) {
+      const { quantidade, cotacao, investido } = item;
+
+      // console.log(`🔎 item:`, item);
+      // console.log(`📊 Quantidade: ${quantidade}, Cotação: ${cotacao}, Investido: ${investido}`);
+
+      if (!investido || isNaN(quantidade) || isNaN(cotacao) || isNaN(investido)) {
+        // console.warn(`⚠️ Dados inválidos para cálculo`, item);
+        return 0;
+      }
+
+      const rendimento = ((quantidade * cotacao - investido) / investido) * 100;
+
+      // console.log(`✅ Rendimento calculado: ${rendimento.toFixed(2)}%`);
+
+      return rendimento;
+    },
+
+    calcularHoje(item) {
+      //const { cotacao } = item;
+
+      // console.log(`🔎 item:`, item);
+      // console.log(`📊 Quantidade: ${quantidade}, Cotação: ${cotacao}, Investido: ${investido}`);
+
+      const hoje = ((1-item.cotacao/item.close)*100);
+
+      // console.log(`✅ Rendimento calculado: ${rendimento.toFixed(2)}%`);
+
+      return hoje;
     },
 
     loadItems() {
       api.get(`/dashboards?CarteiraId=${this.carteiraid}`).then((response) => {
+        // this.items = response.data.map(item => ({
+        //   ...item,
+        //   rendimento: this.calcularRendimento(item)
+        // }));
         this.items = response.data;
         // Extrair os tickers que foram recebidos
         this.symbols = this.items.map(item => item.Ticker.nome);
@@ -233,6 +289,7 @@ export default {
         this.fetchMultipleStockQuotes();
         // Invocar o método que recupera os proventos de cada ticker
         this.fetchMultipleProventos();
+        console.log(this.items);
       });
       api.get(`/carteira?id=${this.carteiraid}`).then((response) => {
         this.CarteiraNome = response.data[0]["nome"];

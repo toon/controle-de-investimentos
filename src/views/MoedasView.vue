@@ -3,13 +3,13 @@
   <v-data-table
     :headers="headers"
     :items="items"
-    :sort-by="[{ key: 'id', order: 'asc' }]"
+    :sort-by="[{ key: 'nome', order: 'asc' }]"
   >
     <template v-slot:top>
       <v-toolbar
         flat
       >
-        <v-toolbar-title><v-icon>mdi-cog</v-icon> Tipos de Ativo</v-toolbar-title>
+        <v-toolbar-title><v-icon>mdi-cog</v-icon> Moedas</v-toolbar-title>
         <v-divider
           class="mx-4"
           inset
@@ -45,10 +45,19 @@
                   >
                     <v-text-field
                       v-model="editedItem.nome"
-                      label="Tipo de Ativo"
+                      label="Moeda"
                     ></v-text-field>
                   </v-col>
-
+                  <v-col
+                    cols="12"
+                    md="12"
+                    sm="12"
+                  >
+                    <v-text-field
+                      v-model="editedItem.descricao"
+                      label="Descrição"
+                    ></v-text-field>
+                  </v-col>
                   <v-col
                     cols="12"
                     md="4"
@@ -134,7 +143,8 @@ export default {
     items: [],
     headers: [
       { title: "Cód", value: "id", key: "id" },
-      { title: "Tipo de Ativo", key:"nome", value: "nome" },
+      { title: "Moeda", key:"nome", value: "nome" },
+      { title: "Descrição", key:"descricao", value: "descricao" },
       { title: "Status", key: "ativo", align: "center", value: "ativo" },
       { title: "Ações", value: "actions", align: "end", sortable: false },
     ],
@@ -142,16 +152,10 @@ export default {
     dialogDelete: false,
     editedIndex: -1,
     editedItem: {
-      nome: '',
-      MoedaId: '',
+      nome: ''
     },
     defaultItem: {
-      nome: '',
-      MoedaId: 1,
-    },
-    rules: {
-      required: value => !!value || 'Campo obrigatório',
-      data: value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
+      nome: ''
     },
   }),
 
@@ -172,23 +176,12 @@ export default {
 
   created() {
     this.loadItems();
-    this.loadmoedas();
   },
 
   methods: {
 
-    // Método para carregar os tipos de operação da API
-    loadmoedas() {
-      api.get("/moeda").then((response) => {
-        this.moedas = response.data;
-        console.log(this.moedas);
-      }).catch(error => {
-        console.error("Erro ao carregar moedas:", error);
-      });
-    },
-
     loadItems() {
-      api.get("/tipoativos").then((response) => {
+      api.get("/moeda").then((response) => {
         this.items = response.data;
         console.log(this.items);
       });
@@ -207,7 +200,7 @@ export default {
     },
 
     deleteItemConfirm () {
-      api.delete(`/tipoativo/${this.editedItem.id}`).then(() => 
+      api.delete(`/moeda/${this.editedItem.id}`).then(() => 
         this.loadItems(),
         this.closeDelete()
       );
@@ -231,11 +224,11 @@ export default {
 
     save () {
       if (this.editedIndex > -1) {
-        api.put(`/tipoativo/${this.editedItem.id}`, this.editedItem).then(() => 
+        api.put(`/moeda/${this.editedItem.id}`, this.editedItem).then(() => 
           this.loadItems()
         )
       } else {
-        api.post("/tipoativo", this.editedItem).then(() => 
+        api.post("/moeda", this.editedItem).then(() => 
           this.loadItems()
         )
       }

@@ -2,7 +2,7 @@
 <template>
   <v-data-table
     :headers="headers"
-    :items="items"
+    :items="filteredItems"
     :sort-by="[{ key: 'data', order: 'desc' }]"
   >
     <template v-slot:top>
@@ -16,6 +16,7 @@
           vertical
         ></v-divider>
         <v-spacer></v-spacer>
+
         <v-dialog
           v-model="dialog"
           max-width="600px"
@@ -30,6 +31,7 @@
               Novo item
             </v-btn>
           </template>
+
           <v-form ref="form" v-model="valid">
             <v-card>
               <v-card-title>
@@ -149,6 +151,66 @@
           </v-card>
         </v-dialog>
       </v-toolbar>
+
+      <!-- Filtros em linha única acima da tabela -->
+      <v-card flat class="mb-4">
+        <v-card-title class="text-h6">Filtros</v-card-title>
+        <v-card-text class="pa-2">
+          <v-row dense align="center">
+            <v-col cols="12" sm="4" md="3">
+              <v-text-field
+                v-model="filters.data"
+                label="Data"
+                placeholder="dd/mm/aaaa"
+                clearable
+                density="compact"
+                variant="outlined"
+                @click:clear="filters.data = ''"
+              ></v-text-field>
+            </v-col>
+            
+            <v-col cols="12" sm="4" md="3">
+              <v-autocomplete
+                v-model="filters.ticker"
+                :items="tickers"
+                item-title="nome"
+                item-value="id"
+                label="Ticker"
+                clearable
+                density="compact"
+                variant="outlined"
+              ></v-autocomplete>
+            </v-col>
+            
+            <v-col cols="12" sm="4" md="3">
+              <v-autocomplete
+                v-model="filters.tipoOperacao"
+                :items="tiposOperacao"
+                item-title="nome"
+                item-value="id"
+                label="Operação"
+                clearable
+                density="compact"
+                variant="outlined"
+              ></v-autocomplete>
+            </v-col>
+            
+            <v-col cols="12" sm="12" md="3" class="text-right">
+              <v-btn
+                color="secondary"
+                variant="outlined"
+                size="small"
+                @click="clearFilters"
+                title="Limpar filtros"
+              >
+                <v-icon start>mdi-filter-off</v-icon>
+                Limpar
+              </v-btn>
+            </v-col>
+          </v-row>
+        </v-card-text>
+      </v-card>      
+
     </template>
     <template v-slot:item.data="{ item }">
       {{ formatDate(item.data) }}
@@ -201,6 +263,11 @@ import { ptBR } from 'date-fns/locale';
 export default {
   data: () => ({
     valid: false,
+    filters: {
+      data: '',
+      ticker: null,
+      tipoOperacao: null
+    },
     carteiraid: null,
     tiposOperacao: [], // Armazena os tipos de operação recuperados da API
     CarteiraNome: "carregando...",
@@ -265,6 +332,21 @@ export default {
       ];
     },
 
+    filteredItems() {
+      return this.items.filter(item => {
+        const matchesData = !this.filters.data || 
+          this.formatDate(item.data).includes(this.filters.data);
+        
+        const matchesTicker = !this.filters.ticker || 
+          item.TickerId === this.filters.ticker;
+        
+        const matchesTipoOperacao = !this.filters.tipoOperacao || 
+          item.TipoOperacaoId === this.filters.tipoOperacao;
+        
+        return matchesData && matchesTicker && matchesTipoOperacao;
+      });
+    },
+
   },
 
   watch: {
@@ -284,6 +366,14 @@ export default {
 
   methods: {
 
+    clearFilters() {
+      this.filters = {
+        data: '',
+        ticker: null,
+        tipoOperacao: null
+      };
+    },
+    
     // Método para carregar os tipos de operação da API
     loadTiposOperacao() {
       api.get("/tipooperacao").then((response) => {

@@ -62,6 +62,12 @@ const routes = [
     meta: { title: "Tipos de ativo" }
   },
   {
+    path: "/moedas",
+    name: "moedas",
+    component: () => import("../views/MoedasView.vue"),
+    meta: { title: "Moedas" }
+  },
+  {
     path: "/carregarcsv",
     name: "carregarcsv",
     component: () => import("../views/CarregarCSVView.vue"),

@@ -18,6 +18,7 @@
       <v-list-item prepend-icon="mdi-cog" title="Tipos de Ativo" value="tiposativo" to="/tiposativo"></v-list-item>
       <v-list-item prepend-icon="mdi-cog" title="Tipos de Operação" value="tiposoperacao" to="/tiposoperacao"></v-list-item>
       <v-list-item prepend-icon="mdi-cog" title="Tipos de Provento" value="tiposprovento" to="/tiposprovento"></v-list-item>
+      <v-list-item prepend-icon="mdi-cog" title="Moedas" value="moedas" to="/moedas"></v-list-item>
       <v-list-item prepend-icon="mdi-cog" title="Carregar CSV" value="carregarcsv" to="/carregarcsv"></v-list-item>
     </v-list>    
     

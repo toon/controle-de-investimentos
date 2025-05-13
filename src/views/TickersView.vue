@@ -77,6 +77,21 @@
                       ></v-autocomplete>
                     </v-col>
 
+                    <v-col
+                      cols="12"
+                      md="12"
+                      sm="12"
+                    >
+                      <v-autocomplete
+                        key="select-key" 
+                        v-model="editedItem.MoedaId"
+                        :items="moedas"
+                        item-title="nome"
+                        item-value="id"
+                        label="Moeda"
+                        :rules="[rules.required]"
+                      ></v-autocomplete>
+                    </v-col>
 
 
                     <v-col
@@ -163,12 +178,14 @@ import api from "../services/api";
 export default {
   data: () => ({
     items: [],
+    moedas: [], // Armazena os tipos de operação recuperados da API
     tiposAtivo: [], // Armazena os tipos de operação recuperados da API
     headers: [
       { title: "Cód", value: "id", key: "id" },
       { title: "Ticker", key:"nome", value: "nome" },
       { title: "Descrição", key:"descricao", value: "descricao" },
       { title: "Tipo ativo", key:"tipoativo", align: "center", value: "TipoAtivo.nome" },
+      { title: "Moeda", key:"moeda", value: "Moeda.nome" },
       { title: "Status", key: "ativo", align: "center", value: "ativo" },
       { title: "Ações", value: "actions", align: "end", sortable: false },
     ],
@@ -212,15 +229,26 @@ export default {
   created() {
     this.loadItems();
     this.loadtiposAtivo();
+    this.loadmoedas();
   },
 
   methods: {
 
     // Método para carregar os tipos de operação da API
+    loadmoedas() {
+      api.get("/moeda").then((response) => {
+        this.moedas = response.data;
+        // console.log(this.moedas);
+      }).catch(error => {
+        console.error("Erro ao carregar moedas:", error);
+      });
+    },
+    
+    // Método para carregar os tipos de operação da API
     loadtiposAtivo() {
       api.get("/tipoativo").then((response) => {
         this.tiposAtivo = response.data;
-        console.log(this.tiposAtivo);
+        // console.log(this.tiposAtivo);
       }).catch(error => {
         console.error("Erro ao carregar tipos de ativo:", error);
       });
