@@ -43,16 +43,16 @@
       {{ item.cotacao ? formatCurrency(item.cotacao, item.Ticker.MoedaId) : 'N/A' }}
     </template>
     <template v-slot:item.rendimento="{ item }">
-      <v-chip :style="{ color: ((((item.quantidade * item.cotacao)-item.investido)/item.investido*100).toFixed(2)) < 0 ? 'red' : ((((item.quantidade * item.cotacao)-item.investido)/item.investido*100).toFixed(2)) > 10 ? 'green' : 'black' }">
-        {{ (((item.quantidade * item.cotacao)-item.investido)/item.investido*100).toFixed(2) }}%
+      <v-chip :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">
+        {{ item.cotacao ? item.rendimento.toFixed(2) + "%" : "N/A" }}
       </v-chip>
     </template>
     <template v-slot:item.proventos="{ item }">
       {{ formatCurrency(item.proventos, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.hoje="{ item }">
-      <v-chip :style="{ color: ((1-item.cotacao/item.close)*100) < 0 ? 'red' : 'green' }">
-        {{ item.close ? ((1-item.cotacao/item.close)*100).toFixed(2) + "%" : "N/A" }}
+      <v-chip :style="{ color: item.hoje < 0 ? 'red' : 'green' }">
+        {{ item.close ? item.hoje.toFixed(2) + "%" : "N/A" }}
       </v-chip>
     </template>
     <template v-slot:no-data>
@@ -267,7 +267,7 @@ export default {
       // console.log(`🔎 item:`, item);
       // console.log(`📊 Quantidade: ${quantidade}, Cotação: ${cotacao}, Investido: ${investido}`);
 
-      const hoje = ((1-item.cotacao/item.close)*100);
+      const hoje = ((item.cotacao/item.close-1)*100);
 
       // console.log(`✅ Rendimento calculado: ${rendimento.toFixed(2)}%`);
 
