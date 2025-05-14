@@ -2,7 +2,7 @@
 <template>
   <v-data-table
     :headers="headers"
-    :items="items"
+    :items="filteredItems"
     :sort-by="[{ key: 'data', order: 'desc' }]"
   >
     <template v-slot:top>
@@ -16,6 +16,7 @@
           vertical
         ></v-divider>
         <v-spacer></v-spacer>
+
         <v-dialog
           v-model="dialog"
           max-width="600px"
@@ -30,7 +31,8 @@
               Novo item
             </v-btn>
           </template>
-          <v-form ref="form" v-model="valid" lazy-validation>
+
+          <v-form ref="form" v-model="valid">
             <v-card>
               <v-card-title>
                 <span class="text-h5">{{ formTitle }}</span>
@@ -139,6 +141,79 @@
           </v-card>
         </v-dialog>
       </v-toolbar>
+
+      <MenuCarteira :carteira-id="$route.params.id" />
+
+      <!-- Filtros em linha única acima da tabela -->
+      <v-card flat class="mb-4">
+        <v-card-title class="text-h6">Filtros
+          <v-btn
+              flat
+              :icon="mostrarCard ? 'mdi-arrow-collapse' : 'mdi-arrow-expand'"
+              density="compact" 
+              @click="mostrarCard = !mostrarCard"
+          ></v-btn>
+
+        </v-card-title>
+        <v-card-text class="pa-2" v-if="mostrarCard">
+          <v-row dense align="center">
+            <v-col cols="12" sm="2" md="2">
+              <v-text-field
+                v-model="filters.data"
+                label="Data"
+                placeholder="dd/mm/aaaa"
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+                @click:clear="filters.data = ''"
+              ></v-text-field>
+            </v-col>
+            
+            <v-col cols="12" sm="2" md="2">
+              <v-autocomplete
+                v-model="filters.ticker"
+                :items="tickers"
+                item-title="nome"
+                item-value="id"
+                label="Ticker"
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+              ></v-autocomplete>
+            </v-col>
+            
+            <v-col cols="12" sm="3" md="3">
+              <v-autocomplete
+                v-model="filters.tipoProvento"
+                :items="tiposProvento"
+                item-title="nome"
+                item-value="id"
+                label="Tipo provento"
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+              ></v-autocomplete>
+            </v-col>
+            
+            <v-col cols="12" sm="12" md="3" class="text-left">
+              <v-btn
+                color="secondary"
+                variant="outlined"
+                size="small"
+                @click="clearFilters"
+                title="Limpar filtros"
+              >
+                <v-icon start>mdi-filter-off</v-icon>
+                Limpar
+              </v-btn>
+            </v-col>
+          </v-row>
+        </v-card-text>
+      </v-card> 
+
     </template>
     <template v-slot:item.data="{ item }">
       {{ formatDate(item.data) }}
@@ -184,9 +259,20 @@
 import api from "../services/api";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import MenuCarteira from '@/components/MenuCarteira.vue'
 
 export default {
+  components: {
+    MenuCarteira,
+  },
   data: () => ({
+    mostrarCard: false,
+    filters: {
+      data: '',
+      ticker: null,
+      tipoProvento: null
+    },
+    tiposProvento: [], // Armazena os tipos de operação recuperados da API
     valid: false,
     carteiraid: null,
     tiposProvento: [], // Armazena os tipos de operação recuperados da API
@@ -247,6 +333,22 @@ export default {
       ];
     },
 
+    filteredItems() {
+      return this.items.filter(item => {
+        const matchesData = !this.filters.data || 
+          this.formatDate(item.data).includes(this.filters.data);
+        
+        const matchesTicker = !this.filters.ticker || 
+          item.TickerId === this.filters.ticker;
+        
+        const matchesTipoProvento = !this.filters.tipoProvento || 
+          item.TipoProventoId === this.filters.tipoProvento;
+        
+        return matchesData && matchesTicker && matchesTipoProvento;
+      });
+    },
+
+
   },
 
   watch: {
@@ -265,6 +367,14 @@ export default {
   },
 
   methods: {
+
+    clearFilters() {
+      this.filters = {
+        data: '',
+        ticker: null,
+        tipoOperacao: null
+      };
+    },
 
     // Método para carregar os tipos de operação da API
     loadtiposProvento() {

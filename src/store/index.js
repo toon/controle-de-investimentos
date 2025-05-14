@@ -1,3 +1,5 @@
+import filters from './modules/filters'
+
 import { createStore } from 'vuex'
 
 export default createStore({
@@ -10,5 +12,8 @@ export default createStore({
   actions: {
   },
   modules: {
-  }
+    filters // Certifique-se que está registrado
+  },
+  
 })
+

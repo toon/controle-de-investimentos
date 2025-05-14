@@ -152,12 +152,22 @@
         </v-dialog>
       </v-toolbar>
 
+      <MenuCarteira :carteira-id="$route.params.id" />
+
       <!-- Filtros em linha única acima da tabela -->
       <v-card flat class="mb-4">
-        <v-card-title class="text-h6">Filtros</v-card-title>
-        <v-card-text class="pa-2">
+        <v-card-title class="text-h6">Filtros
+          <v-btn
+              flat
+              :icon="mostrarCard ? 'mdi-arrow-collapse' : 'mdi-arrow-expand'"
+              density="compact" 
+              @click="mostrarCard = !mostrarCard"
+          ></v-btn>
+
+        </v-card-title>
+        <v-card-text class="pa-2" v-if="mostrarCard">
           <v-row dense align="center">
-            <v-col cols="12" sm="4" md="3">
+            <v-col cols="12" sm="2" md="2">
               <v-text-field
                 v-model="filters.data"
                 label="Data"
@@ -165,11 +175,12 @@
                 clearable
                 density="compact"
                 variant="outlined"
+                hide-details
                 @click:clear="filters.data = ''"
               ></v-text-field>
             </v-col>
             
-            <v-col cols="12" sm="4" md="3">
+            <v-col cols="12" sm="2" md="2">
               <v-autocomplete
                 v-model="filters.ticker"
                 :items="tickers"
@@ -179,10 +190,11 @@
                 clearable
                 density="compact"
                 variant="outlined"
+                hide-details
               ></v-autocomplete>
             </v-col>
             
-            <v-col cols="12" sm="4" md="3">
+            <v-col cols="12" sm="3" md="3">
               <v-autocomplete
                 v-model="filters.tipoOperacao"
                 :items="tiposOperacao"
@@ -192,10 +204,11 @@
                 clearable
                 density="compact"
                 variant="outlined"
+                hide-details
               ></v-autocomplete>
             </v-col>
             
-            <v-col cols="12" sm="12" md="3" class="text-right">
+            <v-col cols="12" sm="12" md="3" class="text-left">
               <v-btn
                 color="secondary"
                 variant="outlined"
@@ -259,9 +272,14 @@
 import api from "../services/api";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import MenuCarteira from '@/components/MenuCarteira.vue'
 
 export default {
+  components: {
+    MenuCarteira,
+  },
   data: () => ({
+    mostrarCard: false,
     valid: false,
     filters: {
       data: '',
