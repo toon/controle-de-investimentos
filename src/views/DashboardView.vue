@@ -5,7 +5,6 @@
     :items="filteredItems"
     :sort-by="[{ key: 'ticker', order: 'asc' }]"
     item-key="id"
-    v-model:expanded="expanded"
     
   >
     <template v-slot:top>
@@ -40,6 +39,7 @@
               :icon="mostrarCard ? 'mdi-arrow-collapse' : 'mdi-arrow-expand'"
               density="compact" 
               @click="mostrarCard = !mostrarCard"
+              size="small"
           ></v-btn>
           
         </v-card-title>
@@ -82,19 +82,13 @@
       {{ formatCurrency(item.preco_medio, item.Ticker.MoedaId) }}
       <v-btn
         flat
-        :icon="isExpanded(item) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+        icon="mdi-plus-circle-outline"
         density="compact" 
         size="small"
-        @click="toggleExpand(item)"
+        @click="(item.cotacao) ? abrirDialog(item) : null"
       ></v-btn>
     </template>
-    <template v-slot:expanded-row="{ columns, item }">
-      <tr>
-        <td :colspan="columns.length">
-          IGOR {{ console.log('ID usado para expansão:', item.Ticker.id) }}
-        </td>
-      </tr>
-    </template>
+    
     <template v-slot:item.lucro_realizado="{ item }">
       {{ formatCurrency(item.lucro_realizado, item.Ticker.MoedaId) }}
     </template>
@@ -129,9 +123,66 @@
       </v-btn>
     </template>
   </v-data-table>
+  <v-dialog v-model="dialog" max-width="800px">
+    <v-card>
+      <v-card-title class="text-h6">
+        Detalhes de {{ itemSelecionado?.Ticker.nome }}
+        <v-card-subtitle>
+          Cotação: {{ itemSelecionado?.cotacao }}
+          </v-card-subtitle>
+      </v-card-title>
+      <v-card-text>
+        <v-data-table
+          :headers="[
+            { title: 'Data', key: 'data', value: 'data' },
+            { title: 'Qtde.', value: 'quantidade' },
+            { title: 'Preço', key: 'valor_unitario', value: 'valor_unitario' },
+            { title: 'Taxas', value: 'taxas' },
+            { title: 'Lucro', key: 'lucro', value: 'lucro' },
+          ]"
+          :items="operacoes"
+          item-key="id"
+          hide-default-footer
+          >
+          <template v-slot:item.data="{ item }">
+            {{ formatDate(item.data) }}
+          </template>
+          <template v-slot:item.valor_unitario="{ item }">
+            {{ formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }}
+          </template>
+          <template v-slot:item.taxas="{ item }">
+            {{ formatCurrency(item.taxas, item.Ticker.MoedaId) }}
+          </template>
+          <template v-slot:item.cotacao="{ item }">
+            {{ formatCurrency(multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price, item.Ticker.MoedaId) }}
+          </template>
+          <template v-slot:item.lucro="{ item }">
+            <span :style="{ color: (multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario) < 0 ? 'red' : 'green' }">
+            {{ formatCurrency((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario), item.Ticker.MoedaId) }}
+            </span>
+          </template>
+          <template v-slot:body.append>
+            <tr class="total-row">
+              <td><strong>Sumarização</strong></td>
+              <td><strong>{{ itemSelecionado?.quantidade }}</strong></td>
+              <td><strong>{{ formatCurrency(itemSelecionado?.preco_medio, itemSelecionado?.Ticker.MoedaId) }}</strong></td>
+              <td><strong>{{ formatCurrency(taxas, itemSelecionado?.Ticker.MoedaId) }}</strong></td>
+              <td><strong>{{ formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao)-itemSelecionado?.investido),itemSelecionado?.Ticker.MoedaId) }}</strong></td>
+            </tr>
+          </template>
+        </v-data-table>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn text @click="fecharDialog()">Fechar</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 <script>
 import api from "../services/api";
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import stockService from "@/services/stockService";
 import MenuCarteira from '@/components/MenuCarteira.vue'
 import { mapActions, mapGetters } from 'vuex'
@@ -141,7 +192,11 @@ export default {
     MenuCarteira,
   },
   data: () => ({
-    expanded: [],
+    taxas: 0,
+    stockSymbol: null,
+    operacoes: [],
+    dialog: false,
+    itemSelecionado: null,
     mostrarCard: false,
     filters: {
       ticker: null,
@@ -164,7 +219,7 @@ export default {
       { title: "Atual", key: "atual", value: "atual" },
       { title: "Cotação", key: "cotacao", value: "cotacao" },
       { title: "Rendimento", key: "rendimento", value: "rendimento" },
-      { title: "Lucro", key: "lucro_realizado", value: "lucro_realizado" },
+      { title: "Realizado", key: "lucro_realizado", value: "lucro_realizado" },
       { title: "Proventos", key: "proventos", value: "proventos" },
       { title: "% Hoje", key: "hoje", value: "hoje" },
     ],
@@ -234,17 +289,64 @@ export default {
 
   methods: {
 
-    toggleExpand(item) {
-      const index = this.expanded.indexOf(item.id)
-      if (index > -1) {
-        this.expanded.splice(index, 1)
-      } else {
-        this.expanded.push(item.id)
+    formatDate(date) {
+      try {
+        const parsedDate = parseISO(date);
+        if (isNaN(parsedDate.getTime())) {
+          console.error('Data inválida:', date);
+          return '';
+        }
+        return format(parsedDate, 'dd/MM/yyyy', { locale: ptBR });
+      } catch (error) {
+        console.error('Erro ao formatar a data:', error);
+        return '';
       }
     },
-    
-    isExpanded(item) {
-      return this.expanded.includes(item.id)
+
+    formatDateToISO(date) {
+      try {
+        const [day, month, year] = date.split('/').map(Number);
+        const isoDate = new Date(year, month - 1, day).toISOString();
+        return isoDate;
+      } catch (error) {
+        console.error('Erro ao converter a data para ISO:', error);
+        return '';
+      }
+    },
+
+    abrirDialog(item) {
+      this.itemSelecionado = item;
+      this.stockSymbol = item.Ticker.nome;
+      api.get(`/operacaose?TipoOperacaoId=1&CarteiraId=${this.carteiraid}&TickerId=${item.Ticker.id}`).then((response) => {
+        this.operacoes = response.data;
+        // console.log("OPERACOES1:" + response.data);
+        // Manter somente os dados referentes à quantidade de ações
+        // Variável para somar quantidade de ações
+        let acumulado = 0;
+        const selecionadas = [];
+
+        // Itera de trás para frente
+        for (let i = this.operacoes.length - 1; i >= 0; i--) {
+          const operacao = this.operacoes[i];
+          if (acumulado >= item.quantidade) break;
+
+          selecionadas.unshift(operacao); // adiciona no início para manter a ordem original
+          acumulado += operacao.quantidade;
+        }
+
+        this.operacoes = selecionadas;
+        this.taxas = selecionadas.reduce((sum, item) => sum + item.taxas, 0);
+        // console.log(selecionadas);
+
+      });
+      
+      this.dialog = true;
+    },
+
+    fecharDialog() {
+      this.dialog = false;
+      this.itemSelecionado = null;
+      this.operacoes = [];
     },
 
     // Mapeie as actions corretamente

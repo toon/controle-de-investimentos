@@ -10,7 +10,7 @@
         v-for="item in items"
         :key="item.value"
         :value="item.value"
-        :to="`/carteiras/${item.to}/${carteiraId}`"
+        :to="(item.value=='carteiras') ? `/carteiras` : `/carteiras/${item.to}/${carteiraId}`"
         :prepend-icon="item.icon"
       >
         {{ item.title }}
@@ -30,6 +30,7 @@
       return {
         tab: null,
         items: [
+          { title: 'Carteiras', icon: 'mdi-wallet', to: 'carteiras', value: 'carteiras' },
           { title: 'Dashboard', icon: 'mdi-view-dashboard', to: 'dashboard', value: 'dashboard' },
           { title: 'Operações', icon: 'mdi-swap-horizontal', to: 'operacoes', value: 'operacoes' },
           { title: 'Proventos', icon: 'mdi-cash', to: 'proventos', value: 'proventos' },
