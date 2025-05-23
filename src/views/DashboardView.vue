@@ -5,7 +5,9 @@
     :items="filteredItems"
     :sort-by="[{ key: 'ticker', order: 'asc' }]"
     item-key="id"
-    
+    hover
+    hover-color="#f5f5f5"
+    :items-per-page="25"
   >
     <template v-slot:top>
       <v-toolbar
@@ -88,7 +90,10 @@
         @click="(item.cotacao) ? abrirDialog(item) : null"
       ></v-btn>
     </template>
-    
+
+    <template v-slot:item.quantidade="{ item }">
+      {{ Number.isInteger(item.quantidade) ? item.quantidade : item.quantidade.toFixed(2) }}
+    </template>    
     <template v-slot:item.lucro_realizado="{ item }">
       {{ formatCurrency(item.lucro_realizado, item.Ticker.MoedaId) }}
     </template>
@@ -144,6 +149,9 @@
           item-key="id"
           hide-default-footer
           >
+          <template v-slot:item.quantidade="{ item }">
+            {{ item.quantidade }}
+          </template>
           <template v-slot:item.data="{ item }">
             {{ formatDate(item.data) }}
           </template>
@@ -212,15 +220,15 @@ export default {
     items: [],
     multipleProventos: [],
     headers: [
-      { title: "Ticker", key:"ticker", value: "Ticker.nome" },
-      { title: "Qtde.", key:"quantidade", value: "quantidade" },
-      { title: "Preço médio", key: "preco_medio", value: "preco_medio" },
-      { title: "Investido", key: "investido", value: "investido" },
-      { title: "Atual", key: "atual", value: "atual" },
-      { title: "Cotação", key: "cotacao", value: "cotacao" },
-      { title: "Rendimento", key: "rendimento", value: "rendimento" },
-      { title: "Realizado", key: "lucro_realizado", value: "lucro_realizado" },
-      { title: "Proventos", key: "proventos", value: "proventos" },
+      { title: "Ticker", key:"ticker", value: "Ticker.nome", align: "center" },
+      { title: "Qtde.", key:"quantidade", value: "quantidade", align: "end" },
+      { title: "Preço médio", key: "preco_medio", value: "preco_medio", align: "end" },
+      { title: "Investido", key: "investido", value: "investido", align: "end" },
+      { title: "Atual", key: "atual", value: "atual", align: "end" },
+      { title: "Cotação", key: "cotacao", value: "cotacao", align: "end" },
+      { title: "Rendimento", key: "rendimento", value: "rendimento", align: "end" },
+      { title: "Realizado", key: "lucro_realizado", value: "lucro_realizado", align: "end" },
+      { title: "Proventos", key: "proventos", value: "proventos", align: "end" },
       { title: "% Hoje", key: "hoje", value: "hoje" },
     ],
     // headers: [
