@@ -216,13 +216,13 @@
 
     </template>
     <template v-slot:item.data="{ item }">
-      {{ formatDate(item.data) }}
+      {{ $formatDate(item.data) }}
     </template>
     <template v-slot:item.valor_unitario="{ item }">
-      {{ formatCurrency(item.valor_unitario) }}
+      {{ $formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.total="{ item }">
-      {{ formatCurrency(item.total) }}
+      {{ $formatCurrency(item.total, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.actions="{ item }">
       <v-icon
@@ -336,7 +336,7 @@ export default {
     filteredItems() {
       return this.items.filter(item => {
         const matchesData = !this.filters.data || 
-          this.formatDate(item.data).includes(this.filters.data);
+          this.$formatDate(item.data).includes(this.filters.data);
         
         const matchesTicker = !this.filters.ticker || 
           item.TickerId === this.filters.ticker;
@@ -386,43 +386,10 @@ export default {
       });
     },
 
-    formatDate(date) {
-      try {
-        const parsedDate = parseISO(date);
-        if (isNaN(parsedDate.getTime())) {
-          console.error('Data inválida:', date);
-          return '';
-        }
-        return format(parsedDate, 'dd/MM/yyyy', { locale: ptBR });
-      } catch (error) {
-        console.error('Erro ao formatar a data:', error);
-        return '';
-      }
-    },
-
-    formatDateToISO(date) {
-      try {
-        const [day, month, year] = date.split('/').map(Number);
-        const isoDate = new Date(year, month - 1, day).toISOString();
-        return isoDate;
-      } catch (error) {
-        console.error('Erro ao converter a data para ISO:', error);
-        return '';
-      }
-    },
-
     calculateTotal(quantidade, precoUnitario, taxas) {
       const total = quantidade * precoUnitario + taxas;
       // Formata o valor total como moeda
       return total.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      });
-    },
-
-    formatCurrency(value) {
-      // Formata o valor como moeda brasileira (R$)
-      return value.toLocaleString('pt-BR', {
         style: 'currency',
         currency: 'BRL'
       });
@@ -445,7 +412,7 @@ export default {
     editItem (item) {
       this.editedIndex = this.items.indexOf(item)
       this.editedItem = Object.assign({}, item)
-      this.formattedDate = this.formatDate(item.data)
+      this.formattedDate = this.$formatDate(item.data)
       console.log(this.editedItem)
       this.dialog = true
     },
@@ -486,7 +453,7 @@ export default {
 
         if (formResult.valid) {
 
-          this.editedItem.data = this.formatDateToISO(this.formattedDate);
+          this.editedItem.data = this.$formatDateToISO(this.formattedDate);
           this.editedItem.CarteiraId = this.carteiraid;
           
           if (this.editedIndex > -1) {

@@ -109,6 +109,16 @@
                       md="4"
                     >
                       <v-text-field
+                        v-model="editedItem.cotacao_dolar"
+                        label="Cotação do Dólar"                        
+                      ></v-text-field>
+                    </v-col>
+
+                    <v-col
+                    cols="12"
+                      md="4"
+                    >
+                      <v-text-field
                         v-model="editedItem.taxas"
                         label="Taxas"
                       ></v-text-field>
@@ -226,16 +236,29 @@
 
     </template>
     <template v-slot:item.data="{ item }">
-      {{ formatDate(item.data) }}
+      {{ $formatDate(item.data) }}
+      <!-- Se o campo cotacao_dolar for diferente de null, exibir -->
+      <span v-if="item.cotacao_dolar">
+        <br />{{ $formatCurrency(item.cotacao_dolar, 1) }}
+      </span>
     </template>
     <template v-slot:item.valor_unitario="{ item }">
-      {{ formatCurrency(item.valor_unitario) }}
+      {{ $formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }}
+      <span v-if="item.cotacao_dolar">
+        <br />{{ $formatCurrency(item.cotacao_dolar*item.valor_unitario, 1) }}
+      </span>
     </template>
     <template v-slot:item.taxas="{ item }">
-      {{ formatCurrency(item.taxas) }}
+      {{ $formatCurrency(item.taxas, item.Ticker.MoedaId) }}
+      <span v-if="item.cotacao_dolar">
+        <br />{{ $formatCurrency(item.cotacao_dolar*item.taxas, 1) }}
+      </span>
     </template>
     <template v-slot:item.total="{ item }">
-      {{ calculateTotal(item.quantidade, item.valor_unitario, item.taxas) }}
+      {{ calculateTotal(item.quantidade, item.valor_unitario, item.taxas, item.Ticker.MoedaId) }}
+      <span v-if="item.cotacao_dolar">
+        <br />{{ calculateTotal(item.quantidade, item.valor_unitario*item.cotacao_dolar, item.taxas*item.cotacao_dolar, 1) }}
+      </span>
     </template>
     <template v-slot:item.actions="{ item }">
       <v-icon
@@ -270,8 +293,6 @@
 </template>
 <script>
 import api from "../services/api";
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import MenuCarteira from '@/components/MenuCarteira.vue'
 
 export default {
@@ -306,12 +327,12 @@ export default {
     dialogDelete: false,
     editedIndex: -1,
     editedItem: {
-      data: '11/11/2023',
+      data: '',
       ticker: '',
       tipooperacao: '',
-      quantidade: '100',
-      valor_unitario: '1',
-      taxas: '0',
+      quantidade: '',
+      valor_unitario: '',
+      taxas: '',
       TickerId: '',
       TipoOperacaoId: '',
       CarteiraId: ''
@@ -353,7 +374,7 @@ export default {
     filteredItems() {
       return this.items.filter(item => {
         const matchesData = !this.filters.data || 
-          this.formatDate(item.data).includes(this.filters.data);
+          this.$formatDate(item.data).includes(this.filters.data);
         
         const matchesTicker = !this.filters.ticker || 
           item.TickerId === this.filters.ticker;
@@ -402,46 +423,10 @@ export default {
       });
     },
 
-    formatDate(date) {
-      try {
-        const parsedDate = parseISO(date);
-        if (isNaN(parsedDate.getTime())) {
-          console.error('Data inválida:', date);
-          return '';
-        }
-        return format(parsedDate, 'dd/MM/yyyy', { locale: ptBR });
-      } catch (error) {
-        console.error('Erro ao formatar a data:', error);
-        return '';
-      }
-    },
-
-    formatDateToISO(date) {
-      try {
-        const [day, month, year] = date.split('/').map(Number);
-        const isoDate = new Date(year, month - 1, day).toISOString();
-        return isoDate;
-      } catch (error) {
-        console.error('Erro ao converter a data para ISO:', error);
-        return '';
-      }
-    },
-
-    calculateTotal(quantidade, precoUnitario, taxas) {
+    calculateTotal(quantidade, precoUnitario, taxas, moedaId) {
       const total = quantidade * precoUnitario + taxas;
       // Formata o valor total como moeda
-      return total.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      });
-    },
-
-    formatCurrency(value) {
-      // Formata o valor como moeda brasileira (R$)
-      return value.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      });
+      return this.$formatCurrency(total, moedaId);
     },
 
     loadItems() {
@@ -465,7 +450,7 @@ export default {
     editItem (item) {
       this.editedIndex = this.items.indexOf(item)
       this.editedItem = Object.assign({}, item)
-      this.formattedDate = this.formatDate(item.data)
+      this.formattedDate = this.$formatDate(item.data)
       // console.log(this.editedItem)
       this.dialog = true
     },
@@ -506,7 +491,7 @@ export default {
 
         if (formResult.valid) {
 
-          this.editedItem.data = this.formatDateToISO(this.formattedDate);
+          this.editedItem.data = this.$formatDateToISO(this.formattedDate);
           this.editedItem.CarteiraId = this.carteiraid;
           
           if (this.editedIndex > -1) {

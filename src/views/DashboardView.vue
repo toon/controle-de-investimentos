@@ -81,7 +81,7 @@
 
     </template>
     <template v-slot:item.preco_medio="{ item }">
-      {{ formatCurrency(item.preco_medio, item.Ticker.MoedaId) }}
+      {{ $formatCurrency(item.preco_medio, item.Ticker.MoedaId) }}
       <v-btn
         flat
         icon="mdi-plus-circle-outline"
@@ -95,16 +95,16 @@
       {{ Number.isInteger(item.quantidade) ? item.quantidade : item.quantidade.toFixed(2) }}
     </template>    
     <template v-slot:item.lucro_realizado="{ item }">
-      {{ formatCurrency(item.lucro_realizado, item.Ticker.MoedaId) }}
+      {{ $formatCurrency(item.lucro_realizado, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.investido="{ item }">
-      {{ formatCurrency(item.investido, item.Ticker.MoedaId) }}
+      {{ $formatCurrency(item.investido, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.atual="{ item }">
-      {{ formatCurrency(item.quantidade * item.cotacao, item.Ticker.MoedaId) }}
+      {{ $formatCurrency(item.quantidade * item.cotacao, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.cotacao="{ item }">
-      {{ item.cotacao ? formatCurrency(item.cotacao, item.Ticker.MoedaId) : 'N/A' }}
+      {{ item.cotacao ? $formatCurrency(item.cotacao, item.Ticker.MoedaId) : 'N/A' }}
     </template>
     <template v-slot:item.rendimento="{ item }">
       <v-chip :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">
@@ -112,7 +112,7 @@
       </v-chip>
     </template>
     <template v-slot:item.proventos="{ item }">
-      {{ formatCurrency(item.proventos, item.Ticker.MoedaId) }}
+      {{ $formatCurrency(item.proventos, item.Ticker.MoedaId) }}
     </template>
     <template v-slot:item.hoje="{ item }">
       <v-chip :style="{ color: item.hoje < 0 ? 'red' : 'green' }">
@@ -133,7 +133,7 @@
       <v-card-title class="text-h6">
         Detalhes de {{ itemSelecionado?.Ticker.nome }}
         <v-card-subtitle>
-          Cotação: {{ itemSelecionado?.cotacao }}
+          Cotação: {{ $formatCurrency(itemSelecionado?.cotacao, itemSelecionado?.Ticker.MoedaId) }}
           </v-card-subtitle>
       </v-card-title>
       <v-card-text>
@@ -153,29 +153,29 @@
             {{ item.quantidade }}
           </template>
           <template v-slot:item.data="{ item }">
-            {{ formatDate(item.data) }}
+            {{ $formatDate(item.data) }}
           </template>
           <template v-slot:item.valor_unitario="{ item }">
-            {{ formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }}
+            {{ $formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }}
           </template>
           <template v-slot:item.taxas="{ item }">
-            {{ formatCurrency(item.taxas, item.Ticker.MoedaId) }}
+            {{ $formatCurrency(item.taxas, item.Ticker.MoedaId) }}
           </template>
           <template v-slot:item.cotacao="{ item }">
-            {{ formatCurrency(multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price, item.Ticker.MoedaId) }}
+            {{ $formatCurrency(multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price, item.Ticker.MoedaId) }}
           </template>
           <template v-slot:item.lucro="{ item }">
             <span :style="{ color: (multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario) < 0 ? 'red' : 'green' }">
-            {{ formatCurrency((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario), item.Ticker.MoedaId) }}
+            {{ $formatCurrency((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario), item.Ticker.MoedaId) }}
             </span>
           </template>
           <template v-slot:body.append>
             <tr class="total-row">
               <td><strong>Sumarização</strong></td>
               <td><strong>{{ itemSelecionado?.quantidade }}</strong></td>
-              <td><strong>{{ formatCurrency(itemSelecionado?.preco_medio, itemSelecionado?.Ticker.MoedaId) }}</strong></td>
-              <td><strong>{{ formatCurrency(taxas, itemSelecionado?.Ticker.MoedaId) }}</strong></td>
-              <td><strong>{{ formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao)-itemSelecionado?.investido),itemSelecionado?.Ticker.MoedaId) }}</strong></td>
+              <td><strong>{{ $formatCurrency(itemSelecionado?.preco_medio, itemSelecionado?.Ticker.MoedaId) }}</strong></td>
+              <td><strong>{{ $formatCurrency(taxas, itemSelecionado?.Ticker.MoedaId) }}</strong></td>
+              <td><strong>{{ $formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao)-itemSelecionado?.investido),itemSelecionado?.Ticker.MoedaId) }}</strong></td>
             </tr>
           </template>
         </v-data-table>
@@ -189,8 +189,6 @@
 </template>
 <script>
 import api from "../services/api";
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import stockService from "@/services/stockService";
 import MenuCarteira from '@/components/MenuCarteira.vue'
 import { mapActions, mapGetters } from 'vuex'
@@ -296,31 +294,6 @@ export default {
   },
 
   methods: {
-
-    formatDate(date) {
-      try {
-        const parsedDate = parseISO(date);
-        if (isNaN(parsedDate.getTime())) {
-          console.error('Data inválida:', date);
-          return '';
-        }
-        return format(parsedDate, 'dd/MM/yyyy', { locale: ptBR });
-      } catch (error) {
-        console.error('Erro ao formatar a data:', error);
-        return '';
-      }
-    },
-
-    formatDateToISO(date) {
-      try {
-        const [day, month, year] = date.split('/').map(Number);
-        const isoDate = new Date(year, month - 1, day).toISOString();
-        return isoDate;
-      } catch (error) {
-        console.error('Erro ao converter a data para ISO:', error);
-        return '';
-      }
-    },
 
     abrirDialog(item) {
       this.itemSelecionado = item;
@@ -469,21 +442,6 @@ export default {
       }
     },
 
-    formatCurrency(value, formato) {
-      // Formata o valor como moeda brasileira (R$)
-      if (formato == 1) {
-        return value.toLocaleString('pt-BR', {
-          style: 'currency',
-          currency: 'BRL'
-        });
-      } else if (formato == 2) {
-        return value.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD'
-        });
-      }
-    },
-    
     calcularRendimento(item) {
       const { quantidade, cotacao, investido } = item;
 
