@@ -133,7 +133,8 @@
       <v-card-title class="text-h6">
         Detalhes de {{ itemSelecionado?.Ticker.nome }}
         <v-card-subtitle>
-          Cotação: {{ $formatCurrency(itemSelecionado?.cotacao, itemSelecionado?.Ticker.MoedaId) }}
+          Cotação do ativo hoje: {{ $formatCurrency(itemSelecionado?.cotacao, itemSelecionado?.Ticker.MoedaId) }}
+          <br /> Dólar hoje: {{ $formatCurrency(this.dolar, 1) }}
           </v-card-subtitle>
       </v-card-title>
       <v-card-text>
@@ -154,12 +155,21 @@
           </template>
           <template v-slot:item.data="{ item }">
             {{ $formatDate(item.data) }}
+            <span v-if="item.cotacao_dolar">
+              <br />{{ $formatCurrency(item.cotacao_dolar, 1) }}
+            </span>
           </template>
           <template v-slot:item.valor_unitario="{ item }">
             {{ $formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }}
+            <span v-if="item.cotacao_dolar">
+              <br />{{ $formatCurrency(item.cotacao_dolar*item.valor_unitario, 1) }}
+            </span>
           </template>
           <template v-slot:item.taxas="{ item }">
             {{ $formatCurrency(item.taxas, item.Ticker.MoedaId) }}
+            <span v-if="item.cotacao_dolar">
+              <br />{{ $formatCurrency(item.cotacao_dolar*item.taxas, 1) }}
+            </span>
           </template>
           <template v-slot:item.cotacao="{ item }">
             {{ $formatCurrency(multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price, item.Ticker.MoedaId) }}
@@ -168,14 +178,32 @@
             <span :style="{ color: (multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario) < 0 ? 'red' : 'green' }">
             {{ $formatCurrency((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario), item.Ticker.MoedaId) }}
             </span>
+            <span v-if="item.cotacao_dolar">
+              <br />{{ $formatCurrency((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade*item.cotacao_dolar-(item.quantidade*item.valor_unitario*item.cotacao_dolar), 1) }}
+            </span>
           </template>
           <template v-slot:body.append>
             <tr class="total-row">
               <td><strong>Sumarização</strong></td>
-              <td><strong>{{ itemSelecionado?.quantidade }}</strong></td>
-              <td><strong>{{ $formatCurrency(itemSelecionado?.preco_medio, itemSelecionado?.Ticker.MoedaId) }}</strong></td>
-              <td><strong>{{ $formatCurrency(taxas, itemSelecionado?.Ticker.MoedaId) }}</strong></td>
-              <td><strong>{{ $formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao)-itemSelecionado?.investido),itemSelecionado?.Ticker.MoedaId) }}</strong></td>
+              <td><strong>{{ itemSelecionado?.quantidade.toFixed(5) }}</strong></td>
+              <td>
+                <strong>{{ $formatCurrency(itemSelecionado?.preco_medio, itemSelecionado?.Ticker.MoedaId) }}</strong>
+                <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
+                  <br />{{ $formatCurrency(itemSelecionado?.preco_medio*this.dolar, 1) }}
+                </span>
+              </td>
+              <td>
+                <strong>{{ $formatCurrency(taxas, itemSelecionado?.Ticker.MoedaId) }}</strong>
+                <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
+                  <br />{{ $formatCurrency(itemSelecionado?.taxas*this.dolar, 1) }}
+                </span>
+              </td>
+              <td>
+                <strong>{{ $formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao)-itemSelecionado?.investido),itemSelecionado?.Ticker.MoedaId) }}</strong>
+                <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
+                  <br />{{ $formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao*this.dolar)-itemSelecionado?.investido*this.dolar), 1) }}
+                </span>
+              </td>
             </tr>
           </template>
         </v-data-table>
@@ -198,6 +226,7 @@ export default {
     MenuCarteira,
   },
   data: () => ({
+    dolar: 0,
     taxas: 0,
     stockSymbol: null,
     operacoes: [],
@@ -286,6 +315,7 @@ export default {
   created() {
     this.carteiraid = this.$route.params.id;
     this.loadItems();
+    this.fetchDolarQuote();
     // this.fetchStockQuotes();
   },
 
@@ -405,6 +435,17 @@ export default {
           
       });
     },
+
+    async fetchDolarQuote() {
+      try {
+        this.dolar = await stockService.getStockQuote('BRL=X');
+        this.dolar = this.dolar.price; // Ajuste para pegar o preço diretamente
+        this.dolar = this.dolar.toFixed(2); // Formatar para duas casas decimais
+      } catch (error) {
+        console.error('Erro ao buscar cotação do dólar:', error);
+      }
+    },
+
 
     async fetchStockQuote() {
       if (!this.stockSymbol) return;
