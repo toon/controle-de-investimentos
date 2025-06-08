@@ -145,6 +145,7 @@
             { title: 'Preço', key: 'valor_unitario', value: 'valor_unitario' },
             { title: 'Taxas', value: 'taxas' },
             { title: 'Lucro', key: 'lucro', value: 'lucro' },
+            { title: 'Rendimento', key: 'rendimento', value: 'rendimento', align: 'center' },
           ]"
           :items="operacoes"
           item-key="id"
@@ -182,6 +183,14 @@
               <br />{{ $formatCurrency((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade*item.cotacao_dolar-(item.quantidade*item.valor_unitario*item.cotacao_dolar), 1) }}
             </span>
           </template>
+          <template v-slot:item.rendimento="{ item }">
+            <v-chip :style="{ color: (((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario))/(item.quantidade*item.valor_unitario)*100).toFixed(2) < 0 ? 'red' : (((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario))/(item.quantidade*item.valor_unitario)*100).toFixed(2) > 10 ? 'green' : 'black' }">
+              {{ (((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario))/(item.quantidade*item.valor_unitario)*100).toFixed(2) }}%
+            </v-chip>
+          <span v-if="item.cotacao_dolar"><br />
+              {{ (((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade*this.dolar-(item.quantidade*item.valor_unitario*item.cotacao_dolar))/(item.quantidade*item.valor_unitario*item.cotacao_dolar)*100).toFixed(2) }}%
+            </span>
+          </template>
           <template v-slot:body.append>
             <tr class="total-row">
               <td><strong>Sumarização</strong></td>
@@ -203,6 +212,11 @@
                 <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
                   <br />{{ $formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao*this.dolar)-itemSelecionado?.investido*this.dolar), 1) }}
                 </span>
+              </td>
+              <td align="center">
+                <v-chip :style="{ color: itemSelecionado?.rendimento < 0 ? 'red' : itemSelecionado?.rendimento > 10 ? 'green' : 'black' }">
+                  {{ itemSelecionado?.rendimento.toFixed(2) }}%
+                </v-chip>
               </td>
             </tr>
           </template>
