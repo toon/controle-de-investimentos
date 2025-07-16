@@ -85,7 +85,6 @@
       v-if="viewMode === 'table'"
       :headers="headers"
       :items="filteredItems"
-      :sort-by="[{ key: 'ticker', order: 'asc' }]"
       item-key="id"
       hover
       hover-color="#f5f5f5"
@@ -441,7 +440,7 @@ export default {
     abrirDialog(item) {
       this.itemSelecionado = item;
       this.stockSymbol = item.Ticker.nome;
-      api.get(`/operacaose?TipoOperacaoId=1&CarteiraId=${this.carteiraid}&TickerId=${item.Ticker.id}`).then((response) => {
+      api.get(`/operacaose?TipoOperacaoId=1&TipoOperacaoId=3&CarteiraId=${this.carteiraid}&TickerId=${item.Ticker.id}`).then((response) => {
         this.operacoes = response.data;
         let acumulado = 0;
         const selecionadas = [];
@@ -496,14 +495,17 @@ export default {
 
     atualizaCotacoes() {
       this.items.forEach(item => {
-          const cotacao = this.multipleQuotes.find(c => c.ticker === item.Ticker.nome);
-          if (cotacao) {
-              item.cotacao = cotacao.price;
-              item.open = cotacao.open;
-              item.high = cotacao.high;
-              item.low = cotacao.low;
-              item.close = cotacao.close;
-          }
+        const cotacao = this.multipleQuotes.find(c => c.ticker === item.Ticker.nome);
+        if (cotacao) {
+          item.cotacao = cotacao.price;
+          item.open = cotacao.open;
+          item.high = cotacao.high;
+          item.low = cotacao.low;
+          item.close = cotacao.close;
+        }
+
+        item.rendimento = this.calcularRendimento(item);
+        item.hoje = this.calcularHoje(item);
       });
 
       this.items = this.items.map(item => ({

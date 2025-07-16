@@ -1,7 +1,8 @@
 // src/services/stockService.js
 import axios from 'axios';
 
-const API_URL = 'http://192.168.0.201:3001/api';  // URL do seu backend Node.js
+// const API_URL = 'http://192.168.0.201:3001/api';  // URL do seu backend Node.js
+const API_URL = 'http://localhost:3001/api';  // URL do seu backend Node.js
 
 const getStockQuote = async (symbol) => {
   try {
