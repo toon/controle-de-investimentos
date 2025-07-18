@@ -56,6 +56,18 @@ const routes = [
     meta: { title: "Tipos de provento" }
   },
   {
+    path: "/tiposopcaooperacoes",
+    name: "tiposopcaooperacoes",
+    component: () => import("../views/TiposOpcaoOperacoesView.vue"),
+    meta: { title: "Tipos de Operações em Opção" }
+  },
+  {
+    path: "/tiposopcaostatus",
+    name: "tiposopcaostatus",
+    component: () => import("../views/TiposOpcaoStatusView.vue"),
+    meta: { title: "Tipos de Status em Opção" }
+  },
+  {
     path: "/tiposativo",
     name: "tiposativo",
     component: () => import("../views/TiposAtivoView.vue"),
