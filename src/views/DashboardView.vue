@@ -116,8 +116,11 @@
       <template v-slot:item.cotacao="{ item }">
         {{ item.cotacao ? $formatCurrency(item.cotacao, item.Ticker.MoedaId) : 'N/A' }}
       </template>
+      <template v-slot:item.lp="{ item }">
+        <div :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">{{ $formatCurrency(item.quantidade * item.cotacao - item.investido, item.Ticker.MoedaId) }}</div>
+      </template>
       <template v-slot:item.rendimento="{ item }">
-        <v-chip :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">
+        <v-chip density="compact" :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">
           {{ item.cotacao ? item.rendimento.toFixed(2) + "%" : "N/A" }}
         </v-chip>
       </template>
@@ -389,6 +392,7 @@ export default {
       { title: "Investido", key: "investido", value: "investido", align: "end" },
       { title: "Atual", key: "atual", value: "atual", align: "end" },
       { title: "Cotação", key: "cotacao", value: "cotacao", align: "end" },
+      { title: "L/P", key: "lp", value: "lp", align: "end" },
       { title: "Rendimento", key: "rendimento", value: "rendimento", align: "end" },
       { title: "Realizado", key: "lucro_realizado", value: "lucro_realizado", align: "end" },
       { title: "Proventos", key: "proventos", value: "proventos", align: "end" },

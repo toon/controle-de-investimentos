@@ -11,12 +11,14 @@
     >
       <v-list nav>
         <v-list-item prepend-icon="mdi-wallet" title="Carteiras" value="carteiras" to="/carteiras"></v-list-item>
+        <v-list-item prepend-icon="mdi-file-certificate-outline" title="Opções" value="opcoes" to="/opcoes"></v-list-item>
         <v-list-item prepend-icon="mdi-factory" title="Tickers" value="tickers" to="/tickers"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Ativo" value="tiposativo" to="/tiposativo"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Operação" value="tiposoperacao" to="/tiposoperacao"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Provento" value="tiposprovento" to="/tiposprovento"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Opções: Tipo de Operação" value="tiposopcaooperacoes" to="/tiposopcaooperacoes"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Opções: Tipo de Status" value="tiposopcaostatus" to="/tiposopcaostatus"></v-list-item>
+        <v-list-item prepend-icon="mdi-cog" title="Opções: Tipo de Período" value="tiposopcaoperiodo" to="/tiposopcaoperiodo"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Moedas" value="moedas" to="/moedas"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Carregar CSV" value="carregarcsv" to="/carregarcsv"></v-list-item>
       </v-list>    
