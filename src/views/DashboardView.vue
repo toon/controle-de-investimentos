@@ -106,18 +106,31 @@
       </template>    
       <template v-slot:item.lucro_realizado="{ item }">
         {{ $formatCurrency(item.lucro_realizado, item.Ticker.MoedaId) }}
+          <span v-if="item.Ticker.MoedaId != 1">
+            <br />{{ $formatCurrency((item.lucro_realizado) * this.dolar, 1) }}
+          </span>        
       </template>
       <template v-slot:item.investido="{ item }">
         {{ $formatCurrency(item.investido, item.Ticker.MoedaId) }}
+        <span v-if="item.Ticker.MoedaId != 1">
+          <br />{{ $formatCurrency(item.investido * this.dolar, 1) }}
+        </span>        
       </template>
       <template v-slot:item.atual="{ item }">
         {{ $formatCurrency(item.quantidade * item.cotacao, item.Ticker.MoedaId) }}
+        <span v-if="item.Ticker.MoedaId != 1">
+          <br />{{ $formatCurrency(item.quantidade * item.cotacao * this.dolar, 1) }}
+        </span>        
       </template>
       <template v-slot:item.cotacao="{ item }">
         {{ item.cotacao ? $formatCurrency(item.cotacao, item.Ticker.MoedaId) : 'N/A' }}
       </template>
       <template v-slot:item.lp="{ item }">
-        <div :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">{{ $formatCurrency(item.quantidade * item.cotacao - item.investido, item.Ticker.MoedaId) }}</div>
+        <div :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">{{ $formatCurrency(item.quantidade * item.cotacao - item.investido, item.Ticker.MoedaId) }}
+          <span v-if="item.Ticker.MoedaId != 1">
+            <br />{{ $formatCurrency((item.quantidade * item.cotacao - item.investido) * this.dolar, 1) }}
+          </span>        
+        </div>
       </template>
       <template v-slot:item.rendimento="{ item }">
         <v-chip density="compact" :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">
@@ -126,6 +139,9 @@
       </template>
       <template v-slot:item.proventos="{ item }">
         {{ $formatCurrency(item.proventos, item.Ticker.MoedaId) }}
+          <span v-if="item.Ticker.MoedaId != 1">
+            <br />{{ $formatCurrency((item.proventos) * this.dolar, 1) }}
+          </span>        
       </template>
       <template v-slot:item.hoje="{ item }">
         <v-chip :style="{ color: item.hoje < 0 ? 'red' : 'green' }">
