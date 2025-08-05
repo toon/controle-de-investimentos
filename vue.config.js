@@ -2,7 +2,7 @@ const { defineConfig } = require('@vue/cli-service')
 module.exports = defineConfig({
   devServer: {
     host: '0.0.0.0',
-    disableHostCheck: true, // ← necessário para aceitar conexões do ngrok
+    allowedHosts: 'all' // ← esta é a nova forma de liberar domínios externos
   },
   pluginOptions: {
     vuetify: {
