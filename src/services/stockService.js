@@ -1,8 +1,8 @@
 // src/services/stockService.js
 import axios from 'axios';
 
-const API_URL = 'https://stock-api-production-f7f4.up.railway.app/api';  // URL do seu backend Node.js
-// const API_URL = 'http://localhost:3001/api';  // URL do seu backend Node.js
+// Arquivo .env
+const API_URL = process.env.VUE_APP_API_URL; // URL do seu backend Node.js
 
 const getStockQuote = async (symbol) => {
   try {
