@@ -101,6 +101,9 @@
         ></v-btn>
       </template>
 
+      <template v-slot:item.ticker="{ item }">
+        {{ item.Ticker.nome }} ({{ item.Ticker.id }})
+      </template>
       <template v-slot:item.quantidade="{ item }">
         {{ Number.isInteger(item.quantidade) ? item.quantidade : item.quantidade.toFixed(2) }}
       </template>    
@@ -265,28 +268,56 @@
     <v-dialog v-model="dialog" max-width="800px">
       <v-card>
         <v-card-title class="text-h6">
-          Detalhes de {{ itemSelecionado?.Ticker.nome }}
+          Detalhes de {{ itemSelecionado?.Ticker.nome }} <br /> 
+          <div>
+            <strong>Posições do ativo:</strong>
+            <span v-if="posicoesAtivo[0]">
+              <v-chip
+                v-for="posicao in posicoesAtivo"
+                :key="posicao"
+                :color="posicao === posicaoAtivoSelecionado ? 'green' : 'grey'"
+                :elevated="posicao === posicaoAtivoSelecionado"
+                :variant="posicao === posicaoAtivoSelecionado ? 'outlined' : 'tonal'"
+                :class="posicao === posicaoAtivoSelecionado ? 'selected-posicao-chip' : ''"
+                class="ma-1"
+                size="small"
+              >
+                <a href="#" @click.prevent="atualizaPosicaoDialog(posicao)">
+                  {{ posicao }}
+                </a>
+              </v-chip>
+            </span>
+            <span v-else>
+              Nenhuma posição encontrada.
+            </span>
+          </div>
           <v-card-subtitle>
             Cotação do ativo hoje: {{ $formatCurrency(itemSelecionado?.cotacao, itemSelecionado?.Ticker.MoedaId) }}
-            <br /> Dólar hoje: {{ $formatCurrency(this.dolar, 1) }}
+            <br /> Dólar hoje: {{ $formatCurrency(this.dolar, 1) }} 
             </v-card-subtitle>
+          
         </v-card-title>
         <v-card-text>
           <v-data-table
             :headers="[
               { title: 'Data', key: 'data', value: 'data' },
-              { title: 'Qtde.', value: 'quantidade' },
-              { title: 'Preço M.', key: 'valor_unitario', value: 'valor_unitario' },
+              { title: 'Op.', key: 'TipoOperacaoId', value: 'TipoOperacao.nome' },
+              { title: 'Qtde. (Acc.)', value: 'quantidade' },
+              { title: 'Preço M. (PM Posição)', key: 'valor_unitario', value: 'valor_unitario' },
               { title: 'Taxas', value: 'taxas' },
-              { title: 'Lucro', key: 'lucro', value: 'lucro' },
+              { title: 'L/P', key: 'lucro', value: 'lucro' },
               { title: 'Rendimento', key: 'rendimento', value: 'rendimento', align: 'center' },
             ]"
-            :items="operacoes"
+            :items="operacoesselecionadas"
             item-key="id"
             hide-default-footer
             >
+            <template v-slot:item.TipoOperacaoId="{ item }">
+              {{ item.TipoOperacao.nome.substring(0, 1) }}
+            </template>
             <template v-slot:item.quantidade="{ item }">
-              {{ item.quantidade }}
+              {{ item.quantidade }} 
+              <span style="color:#aaa">({{ item.qtde_acumulada.toFixed(2) }})</span>
             </template>
             <template v-slot:item.data="{ item }">
               {{ $formatDate(item.data) }}
@@ -295,7 +326,8 @@
               </span>
             </template>
             <template v-slot:item.valor_unitario="{ item }">
-              {{ $formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }}
+              {{ $formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }} 
+              <span style="color:#aaa">({{ $formatCurrency(item.PM_posicao, item.Ticker.MoedaId) }})</span>
               <span v-if="item.cotacao_dolar">
                 <br />{{ $formatCurrency(item.cotacao_dolar*item.valor_unitario, 1) }}
               </span>
@@ -310,29 +342,30 @@
               {{ $formatCurrency(multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price, item.Ticker.MoedaId) }}
             </template>
             <template v-slot:item.lucro="{ item }">
-              <span :style="{ color: (multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario) < 0 ? 'red' : 'green' }">
-              {{ $formatCurrency((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario), item.Ticker.MoedaId) }}
-              </span>
-              <span v-if="item.cotacao_dolar">
-                <br />{{ $formatCurrency((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade*item.cotacao_dolar-(item.quantidade*item.valor_unitario*item.cotacao_dolar), 1) }}
+              <span v-if="item.TipoOperacaoId === 2">
+                  <span :style="{color: item.lucro > 0 ? 'green' : 'red'}">{{ $formatCurrency(item.lucro, item.Ticker.MoedaId) }}</span>
               </span>
             </template>
             <template v-slot:item.rendimento="{ item }">
-              <v-chip :style="{ color: (((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario))/(item.quantidade*item.valor_unitario)*100).toFixed(2) < 0 ? 'red' : (((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario))/(item.quantidade*item.valor_unitario)*100).toFixed(2) > 10 ? 'green' : 'black' }">
-                {{ (((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade-(item.quantidade*item.valor_unitario))/(item.quantidade*item.valor_unitario)*100).toFixed(2) }}%
-              </v-chip>
-            <span v-if="item.cotacao_dolar"><br />
+              <v-chip v-if="item.rendimento" :style="{ color: item.rendimento < 0 ? 'red' : 'green' }">
+                {{ item.TipoOperacaoId === 2 ? item.rendimento.toFixed(2) + '%' : 'N/A' }}  
+              </v-chip>              
+              <span v-if="item.cotacao_dolar && item.rendimento"><br />
                 {{ (((multipleQuotes.find(i => i.ticker === item.Ticker.nome)?.price)*item.quantidade*this.dolar-(item.quantidade*item.valor_unitario*item.cotacao_dolar))/(item.quantidade*item.valor_unitario*item.cotacao_dolar)*100).toFixed(2) }}%
               </span>
             </template>
             <template v-slot:body.append>
               <tr class="total-row">
                 <td><strong>Sumarização</strong></td>
-                <td><strong>{{ itemSelecionado?.quantidade.toFixed(5) }}</strong></td>
+                <td>&nbsp;</td>
+                <td><strong>{{ this.posicaoQuantidade.toFixed(2) }}</strong></td>
                 <td>
-                  <strong>{{ $formatCurrency(itemSelecionado?.preco_medio, itemSelecionado?.Ticker.MoedaId) }}</strong>
+                  <strong>
+                    {{ $formatCurrency(this.posicaoPrecoMedio, itemSelecionado?.Ticker.MoedaId) }}
+                    
+                  </strong>
                   <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
-                    <br />{{ $formatCurrency(itemSelecionado?.preco_medio*this.dolar, 1) }}
+                    <br />{{ $formatCurrency(this.posicaoPrecoMedio*this.dolar, 1) }}
                   </span>
                 </td>
                 <td>
@@ -342,17 +375,20 @@
                   </span>
                 </td>
                 <td>
-                  <strong>{{ $formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao)-itemSelecionado?.investido),itemSelecionado?.Ticker.MoedaId) }}</strong>
-                  <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
-                    <br />{{ $formatCurrency(((itemSelecionado?.quantidade * itemSelecionado?.cotacao*this.dolar)-itemSelecionado?.investido*this.dolar), 1) }}
+                  <span v-if="this.posicaoQuantidade">
+                    <span :style="{ color: itemSelecionado?.cotacao > this.posicaoPrecoMedio ? 'green' : 'red'}"><strong>{{ $formatCurrency(((itemSelecionado?.cotacao-this.posicaoPrecoMedio)*this.posicaoQuantidade)-taxas, itemSelecionado?.Ticker.MoedaId) }}</strong></span>
+                    <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
+                      <br />{{ $formatCurrency((((itemSelecionado?.cotacao-this.posicaoPrecoMedio)*this.posicaoQuantidade)-taxas)*this.dolar, 1) }}
+                    </span>
                   </span>
                 </td>
                 <td align="center">
-                  <v-chip :style="{ color: itemSelecionado?.rendimento < 0 ? 'red' : itemSelecionado?.rendimento > 10 ? 'green' : 'black' }">
-                    {{ itemSelecionado?.rendimento.toFixed(2) }}%
+                  <v-chip v-if="this.posicaoQuantidade" :style="{ color: (itemSelecionado?.cotacao/this.posicaoPrecoMedio-1) < 0 ? 'red' : 'green' }">
+                    {{ ((itemSelecionado?.cotacao/this.posicaoPrecoMedio-1)*100).toFixed(2) }}%
                   </v-chip>
                   <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
-                    <br />{{ this.rendimento_reais }}%
+                    <br />
+                    <!-- {{ this.rendimento_reais }}% -->
                   </span>
                 </td>
               </tr>
@@ -373,18 +409,24 @@ import api from "../services/api";
 import stockService from "@/services/stockService";
 import MenuCarteira from '@/components/MenuCarteira.vue'
 import { mapActions, mapGetters } from 'vuex'
+import { el } from "date-fns/locale";
 
 export default {
   components: {
     MenuCarteira,
   },
   data: () => ({
+    posicoesAtivo: [],
+    posicaoAtivoSelecionado: null,
+    posicaoPrecoMedio: 0,
+    posicaoQuantidade: 0,
     viewMode: 'table', // 'table' ou 'cards'
     rendimento_reais: 0,
     dolar: 0,
     taxas: 0,
     stockSymbol: null,
     operacoes: [],
+    operacoesselecionadas: [],
     dialog: false,
     itemSelecionado: null,
     mostrarCard: false,
@@ -457,28 +499,187 @@ export default {
   },
 
   methods: {
+    // abrirDialog(item) {
+    //   this.itemSelecionado = item;
+    //   this.stockSymbol = item.Ticker.nome;
+    //   api.get(`/operacaose?TipoOperacaoId=1&TipoOperacaoId=3&CarteiraId=${this.carteiraid}&TickerId=${item.Ticker.id}`).then((response) => {
+    //     this.operacoes = response.data;
+    //     let acumulado = 0;
+    //     const selecionadas = [];
+
+    //     for (let i = this.operacoes.length - 1; i >= 0; i--) {
+    //       const operacao = this.operacoes[i];
+    //       if (acumulado >= item.quantidade) break;
+
+    //       selecionadas.unshift(operacao);
+    //       acumulado += operacao.quantidade;
+    //     }
+
+    //     this.operacoes = selecionadas;
+    //     this.taxas = selecionadas.reduce((sum, item) => sum + item.taxas, 0);
+    //     this.rendimento_reais = this.calcularRendimentoReais(selecionadas, item.cotacao * item.quantidade * this.dolar);
+    //   });
+      
+    //   this.dialog = true;
+    // },
+
     abrirDialog(item) {
       this.itemSelecionado = item;
       this.stockSymbol = item.Ticker.nome;
-      api.get(`/operacaose?TipoOperacaoId=1&TipoOperacaoId=3&CarteiraId=${this.carteiraid}&TickerId=${item.Ticker.id}`).then((response) => {
+      api.get(`/operacaose?TipoOperacaoId=1&TipoOperacaoId=2&TipoOperacaoId=3&TipoOperacaoId=4&CarteiraId=${this.carteiraid}&TickerId=${item.Ticker.id}`).then((response) => {
         this.operacoes = response.data;
-        let acumulado = 0;
-        const selecionadas = [];
 
-        for (let i = this.operacoes.length - 1; i >= 0; i--) {
-          const operacao = this.operacoes[i];
-          if (acumulado >= item.quantidade) break;
-
-          selecionadas.unshift(operacao);
-          acumulado += operacao.quantidade;
+        // Atribuir ao this.posicoesAtivo o array com somente o código das posições únicas
+        this.posicoesAtivo = [...new Set(this.operacoes.map(op => op.PosicaoAtivoId))];
+        
+        let selecionadas = [];
+        // Filtrar somente as operações da última posição
+        // Recuperar o PosiçãoAtivoId da última operação
+        if (this.operacoes.length === 0) {
+          this.dialog = false;
+          return;
+        } else {
+          const ultimaOperacao = this.operacoes[this.operacoes.length - 1];
+          selecionadas = this.operacoes.filter(op => op.PosicaoAtivoId === ultimaOperacao.PosicaoAtivoId);
+          this.posicaoAtivoSelecionado = ultimaOperacao.PosicaoAtivoId;
         }
 
-        this.operacoes = selecionadas;
+        // Em selecionadas, adicionar a propriedade qtde_acumulada que é a soma acumulada da quantidade
+        // de compras, subscrições e bonificações menos as vendas. 
+        let acumulado = 0;
+        selecionadas = selecionadas.map(op => {
+          if (op.TipoOperacaoId === 1 || op.TipoOperacaoId === 3 || op.TipoOperacaoId === 4) {
+            acumulado += op.quantidade;
+          } else if (op.TipoOperacaoId === 2) {
+            acumulado -= op.quantidade;
+          }
+          return { ...op, qtde_acumulada: acumulado };
+        });
+
+        this.posicaoQuantidade = acumulado;
+
+        // Em selecionadas, adicionar a propriedade PM_posicao que é o preço médio da posição na data da operação
+        // Nas operações de venda, o PM_posicao é o PM_posicao da operação anterior
+        // Para compra, bonificação e subscrição, o PM_posicao é calculado como a média ponderada do PM_posicao anterior
+        let pmPosicaoAnterior = 0;
+        let quantidadeAcumulada = 0;
+        selecionadas = selecionadas.map(op => {
+          if (op.TipoOperacaoId === 1 || op.TipoOperacaoId === 3 || op.TipoOperacaoId === 4) {
+            // Compra, bonificação ou subscrição
+            const totalAnterior = pmPosicaoAnterior * quantidadeAcumulada;
+            quantidadeAcumulada += op.quantidade;
+            pmPosicaoAnterior = (totalAnterior + (op.valor_unitario * op.quantidade)) / quantidadeAcumulada;
+          } else if (op.TipoOperacaoId === 2) {
+            // Venda
+            quantidadeAcumulada -= op.quantidade;
+            // O PM_posicao permanece o mesmo em vendas
+          }
+          return { ...op, PM_posicao: pmPosicaoAnterior };
+        });
+
+        this.posicaoPrecoMedio = pmPosicaoAnterior;
+
+        // Em selecionadas, adicionar a propriedade lucro para os registros de venda
+        // O lucro é calculado como (valor_unitario - PM_posicao) * quantidade
+        selecionadas = selecionadas.map(op => {
+          if (op.TipoOperacaoId === 2) {
+            const lucro = (op.valor_unitario - op.PM_posicao) * op.quantidade;
+            return { ...op, lucro };
+          }
+          return { ...op, lucro: 0 };
+        });
+
+        // Em selecionadas, adicionar a propriedade rendimento que é o rendimento da operação de venda
+        // O rendimento é calculado como ((valor_unitario - PM_posicao) / PM_posicao) * 100
+        selecionadas = selecionadas.map(op => {
+          if (op.TipoOperacaoId === 2) {
+            const rendimento = ((op.valor_unitario - op.PM_posicao) / op.PM_posicao) * 100;
+            return { ...op, rendimento };
+          }
+          return { ...op, rendimento: 0 };
+        });
+
+        this.operacoesselecionadas = selecionadas;
         this.taxas = selecionadas.reduce((sum, item) => sum + item.taxas, 0);
         this.rendimento_reais = this.calcularRendimentoReais(selecionadas, item.cotacao * item.quantidade * this.dolar);
       });
       
       this.dialog = true;
+    },
+
+    atualizaPosicaoDialog(posicaoId) {
+      
+      let selecionadas = [];
+      
+      // Filtrar somente as operações cujo valor seja igual ao posicaoId recebido como parâmetro
+      
+      if (this.operacoes.length === 0) {
+        this.dialog = false;
+        return;
+      } else {
+        selecionadas = this.operacoes.filter(op => op.PosicaoAtivoId === posicaoId);
+        this.posicaoAtivoSelecionado = posicaoId;
+      }
+      
+      // Em selecionadas, adicionar a propriedade qtde_acumulada que é a soma acumulada da quantidade
+      // de compras, subscrições e bonificações menos as vendas. 
+      let acumulado = 0;
+      selecionadas = selecionadas.map(op => {
+        if (op.TipoOperacaoId === 1 || op.TipoOperacaoId === 3 || op.TipoOperacaoId === 4) {
+          acumulado += op.quantidade;
+        } else if (op.TipoOperacaoId === 2) {
+          acumulado -= op.quantidade;
+        }
+        return { ...op, qtde_acumulada: acumulado };
+      });
+
+      this.posicaoQuantidade = acumulado;
+
+      // Em selecionadas, adicionar a propriedade PM_posicao que é o preço médio da posição na data da operação
+      // Nas operações de venda, o PM_posicao é o PM_posicao da operação anterior
+      // Para compra, bonificação e subscrição, o PM_posicao é calculado como a média ponderada do PM_posicao anterior
+      let pmPosicaoAnterior = 0;
+      let quantidadeAcumulada = 0;
+      selecionadas = selecionadas.map(op => {
+        if (op.TipoOperacaoId === 1 || op.TipoOperacaoId === 3 || op.TipoOperacaoId === 4) {
+          // Compra, bonificação ou subscrição
+          const totalAnterior = pmPosicaoAnterior * quantidadeAcumulada;
+          quantidadeAcumulada += op.quantidade;
+          pmPosicaoAnterior = (totalAnterior + (op.valor_unitario * op.quantidade)) / quantidadeAcumulada;
+        } else if (op.TipoOperacaoId === 2) {
+          // Venda
+          quantidadeAcumulada -= op.quantidade;
+          // O PM_posicao permanece o mesmo em vendas
+        }
+        return { ...op, PM_posicao: pmPosicaoAnterior };
+      });
+
+      this.posicaoPrecoMedio = pmPosicaoAnterior;
+
+      // Em selecionadas, adicionar a propriedade lucro para os registros de venda
+      // O lucro é calculado como (valor_unitario - PM_posicao) * quantidade
+      selecionadas = selecionadas.map(op => {
+        if (op.TipoOperacaoId === 2) {
+          const lucro = (op.valor_unitario - op.PM_posicao) * op.quantidade;
+          return { ...op, lucro };
+        }
+        return { ...op, lucro: 0 };
+      });
+
+      // Em selecionadas, adicionar a propriedade rendimento que é o rendimento da operação de venda
+      // O rendimento é calculado como ((valor_unitario - PM_posicao) / PM_posicao) * 100
+      selecionadas = selecionadas.map(op => {
+        if (op.TipoOperacaoId === 2) {
+          const rendimento = ((op.valor_unitario - op.PM_posicao) / op.PM_posicao) * 100;
+          return { ...op, rendimento };
+        }
+        return { ...op, rendimento: 0 };
+      });
+
+      this.operacoesselecionadas = selecionadas;
+      this.taxas = selecionadas.reduce((sum, op) => sum + op.taxas, 0);
+      this.rendimento_reais = this.calcularRendimentoReais(selecionadas, this.itemSelecionado.cotacao * this.itemSelecionado.quantidade * this.dolar);
+
     },
 
     fecharDialog() {

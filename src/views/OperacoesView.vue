@@ -3,7 +3,7 @@
   <v-data-table
     :headers="headers"
     :items="filteredItems"
-    :sort-by="[{ key: 'data', order: 'desc' }]"
+    :sort-by="[{ key: 'data', order: 'asc' }]"
   >
     <template v-slot:top>
       <v-toolbar
@@ -260,6 +260,9 @@
         <br />{{ calculateTotal(item.quantidade, item.valor_unitario*item.cotacao_dolar, item.taxas*item.cotacao_dolar, 1) }}
       </span>
     </template>
+    <template v-slot:item.ticker="{ item }">
+      {{ item.Ticker.nome }} ({{ item.Ticker.id }})
+    </template>
     <template v-slot:item.actions="{ item }">
       <v-icon
         class="me-2"
@@ -314,6 +317,8 @@ export default {
     tickers: [],
     items: [],
     headers: [
+      // { title: "#", value: "id", align: "center", key: "id" },
+      { title: "Pos.", value: "PosicaoAtivoId", align: "center", key: "PosicaoAtivoId" },
       { title: "Data", value: "data", align: "center", key: "data" },
       { title: "Ticker", key:"ticker", align: "center", value: "Ticker.nome" },
       { title: "Operação", key:"tipooperacao", align: "center", value: "TipoOperacao.nome" },

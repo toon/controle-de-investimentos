@@ -4,6 +4,7 @@
     :headers="headers"
     :items="items"
     :sort-by="[{ key: 'nome', order: 'asc' }]"
+    items-per-page="50"
   >
     <template v-slot:top>
       <v-toolbar

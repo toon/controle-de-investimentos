@@ -72,12 +72,20 @@ export default {
         }
     };
     
-    // Novo método: Verifica se a data está vencida
     app.config.globalProperties.$isVencido = (dataVencimento) => {
       try {
-        const hoje = new Date();
         const vencimento = new Date(dataVencimento);
-        return vencimento < hoje;
+        vencimento.setHours(0, 0, 0, 0);
+
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        // adiciona 1 dia à data de vencimento
+        const vencimentoComDiaExtra = new Date(vencimento);
+        vencimentoComDiaExtra.setDate(vencimento.getDate() + 1);
+
+        return vencimentoComDiaExtra < hoje;
+        
       } catch (error) {
         console.error('Erro ao verificar data de vencimento:', error);
         return false;

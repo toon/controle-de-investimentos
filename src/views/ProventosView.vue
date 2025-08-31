@@ -4,6 +4,7 @@
     :headers="headers"
     :items="filteredItems"
     :sort-by="[{ key: 'data', order: 'desc' }]"
+    items-per-page="50"
   >
     <template v-slot:top>
       <v-toolbar

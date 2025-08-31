@@ -276,6 +276,12 @@
       <v-chip
         :style="{ color: item.TipoOpcaoStatus.nome == 'Em andamento' ? '#4caf50' : '#ff5722' }"
         ><small>{{ item.TipoOpcaoStatus.nome}}</small></v-chip>
+
+        <small>{{ item.TipoOpcaoStatus.nome == 'Em andamento' ? 
+          $diasEntreDatas(item.data_abertura, new Date()) + ' dias de oper.'
+          : '' }}
+        </small>
+
     </template>
     <template v-slot:item.porcent_operacao="{ item }">
       <v-chip>{{ (item.premio*item.quantidade/item.investido*100).toFixed(2) }}%</v-chip>
@@ -343,6 +349,7 @@
   </v-data-table>
 </template>
 <script>
+import { isToday } from "date-fns";
 import api from "../services/api";
 
 export default {
@@ -360,7 +367,7 @@ export default {
     tiposAtivo: [], // Armazena os tipos de operação recuperados da API
     headers: [
       { title: "Cód", value: "id", key: "id" },
-      { title: "Status", key:"status", value: "TipoOpcaoStatus.nome" },
+      { title: "Status", key:"status", value: "TipoOpcaoStatus.nome", align: "center" },
       { title: "Ativo alvo", key:"ativo", value: "Ticker.nome" },
       { title: "Opção", key:"nome", value: "nome" },
       { title: "Abertura", key:"data_abertura", value: "data_abertura" },
