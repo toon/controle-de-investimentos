@@ -20,16 +20,22 @@ const routes = [
     meta: { title: "Carteiras" }
   },
   {
+    path: "/investidores",
+    name: "investidores",
+    component: () => import("../views/InvestidoresView.vue"),
+    meta: { title: "Investidores" }
+  },
+  {
+    path: "/corretoras",
+    name: "corretoras",
+    component: () => import("../views/CorretorasView.vue"),
+    meta: { title: "Corretoras" }
+  },
+  {
     path: "/carteiras/operacoes/:id",
     name: "operacoes",
     component: () => import("../views/OperacoesView.vue"),
     meta: { title: "Operações" }
-  },
-  {
-    path: "/carteiras/investimentos/:id",
-    name: "investimentos",
-    component: () => import("../views/InvestimentosView.vue"),
-    meta: { title: "Investimentos" }
   },
   {
     path: "/carteiras/proventos/:id",
@@ -66,6 +72,12 @@ const routes = [
     name: "opcoes",
     component: () => import("../views/OpcoesView.vue"),
     meta: { title: "Opções" }
+  },
+  {
+    path: "/ticker/posicoes/:id",
+    name: "posicoes",
+    component: () => import("../views/PosicoesView.vue"),
+    meta: { title: "Posições" }
   },
   {
     path: "/tiposopcaooperacoes",

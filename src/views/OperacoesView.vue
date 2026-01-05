@@ -9,7 +9,16 @@
       <v-toolbar
         flat
       >
-        <v-toolbar-title><v-icon>mdi-finance</v-icon> Operações {{ CarteiraNome }}</v-toolbar-title>
+        <v-toolbar-title>
+          <v-icon>mdi-finance</v-icon> Operações {{ CarteiraNome }}
+          <v-btn
+            color="primary"
+            icon="mdi-arrow-right-circle"
+            density="comfortable" 
+            @click="nextCarteira"
+            title="Próxima carteira"
+          ></v-btn>
+        </v-toolbar-title>
         <v-divider
           class="mx-4"
           inset
@@ -19,7 +28,7 @@
 
         <v-dialog
           v-model="dialog"
-          max-width="600px"
+          max-width="750px"
         >
           <template v-slot:activator="{ props }">
             <v-btn
@@ -35,7 +44,7 @@
           <v-form ref="form" v-model="valid">
             <v-card>
               <v-card-title>
-                <span class="text-h5">{{ formTitle }}</span>
+                <span class="text-h5">{{ formTitle }}</span> 
               </v-card-title>
 
               <v-card-text>
@@ -44,7 +53,7 @@
                     
                     <v-col 
                     cols="12"
-                      md="4"
+                      md="3"
                     >
                       <v-autocomplete
                         key="select-key" 
@@ -59,7 +68,7 @@
 
                     <v-col 
                       cols="12" 
-                      md="4" 
+                      md="3" 
                     >
                       <v-autocomplete
                         v-model="editedItem.TickerId"
@@ -73,7 +82,7 @@
 
                     <v-col
                     cols="12"
-                      md="4"
+                      md="3"
                     >
                       <v-text-field
                         v-model="formattedDate"
@@ -84,7 +93,7 @@
 
                     <v-col
                     cols="12"
-                      md="4"
+                      md="3"
                     >
                       <v-text-field
                         v-model="editedItem.quantidade"
@@ -95,7 +104,7 @@
 
                     <v-col
                     cols="12"
-                      md="4"
+                      md="3"
                     >
                       <v-text-field
                         v-model="editedItem.valor_unitario"
@@ -106,7 +115,7 @@
 
                     <v-col
                     cols="12"
-                      md="4"
+                      md="3"
                     >
                       <v-text-field
                         v-model="editedItem.cotacao_dolar"
@@ -116,7 +125,7 @@
 
                     <v-col
                     cols="12"
-                      md="4"
+                      md="3"
                     >
                       <v-text-field
                         v-model="editedItem.taxas"
@@ -124,8 +133,50 @@
                       ></v-text-field>
                     </v-col>
 
+                    <v-col 
+                    cols="12"
+                      md="3"
+                    >
+                      <v-autocomplete
+                        v-model="editedItem.PosicaoAtivoId"
+                        :items="posicoesTicker"
+                        item-title="id"
+                        item-value="id"
+                        label="Posição"
+                        :rules="[rules.required]"
+                      ></v-autocomplete>
+                    </v-col>
+
+                    <v-col 
+                    cols="12"
+                      md="3"
+                    >
+                      <v-autocomplete
+                        v-model="editedItem.Investidor"
+                        :items="Investidores"
+                        item-title="nome"
+                        item-value="id"
+                        label="Investidor"
+                        :rules="[rules.required]"
+                      ></v-autocomplete>
+                    </v-col>
+
+                    <v-col 
+                    cols="12"
+                      md="3"
+                    >
+                      <v-autocomplete
+                        v-model="editedItem.Corretora"
+                        :items="Corretoras"
+                        item-title="nome"
+                        item-value="id"
+                        label="Corretora"
+                        :rules="[rules.required]"
+                      ></v-autocomplete>
+                    </v-col>
+
                   </v-row>
-                  
+
                 </v-container>
               </v-card-text>
 
@@ -146,6 +197,82 @@
                   Salvar
                 </v-btn>
               </v-card-actions>
+
+              <v-card
+                class="mb-4"
+                outlined
+                elevation="0"
+                v-if="editedItem.TickerId"
+              >
+                <v-card-title class="text-h6">
+                  Posições do ativo {{ tickers.find(t => t.id === editedItem.TickerId)?.nome || '' }}
+                </v-card-title>
+                <v-card-text>
+                  <v-row>
+                    <v-col
+                      v-for="pos in posicoesTicker"
+                      :key="pos.id"
+                      cols="12"
+                      md="4"
+                    >
+                      <v-card outlined class="pa-2">
+                        <v-card-title class="text-caption font-weight-medium">
+                          Posição #{{ pos.id }}
+                        </v-card-title>
+                        <v-card-text class="text-caption pa-1">
+                          <div>Data abertura: {{ $formatDate(pos.data_abertura) }}</div>
+                          <div>
+                            Data fechamento: {{ $formatDate(pos.data_fechamento) }}
+                            <span v-if="pos.data_fechamento == null">(em aberto)</span>
+                          </div>
+                        </v-card-text>
+                      </v-card>
+                    </v-col>
+                  </v-row>
+                  <v-row v-if="!posicoesTicker.length">
+                    <v-col cols="12" md="12">
+                      <div class="text-caption text-grey">
+                      Nenhuma posição encontrada para este ativo.
+                      </div>
+                    </v-col>
+                  </v-row>
+                  <v-row>
+                    <v-col cols="12" md="12">
+                      
+                      <v-btn
+                        color="primary"
+                        variant="outlined"
+                        @click="novaPosicao"
+                      >
+                        <v-icon start>mdi-plus</v-icon>
+                        Nova posição
+                      </v-btn>
+
+                      <v-dialog v-model="dialogNovaPosicao" max-width="400px">
+                      <v-card>
+                        <v-card-title class="text-h6">Nova posição</v-card-title>
+                        <v-card-text>
+                        <v-text-field
+                          v-model="novaPosicaoData"
+                          label="Data de abertura"
+                          placeholder="dd/mm/aaaa"
+                          :rules="[rules.required, rules.data]"
+                        ></v-text-field>
+                        </v-card-text>
+                        <v-card-actions>
+                        <v-spacer></v-spacer>
+                        <v-btn text @click="dialogNovaPosicao = false">Cancelar</v-btn>
+                        <v-btn color="primary" text @click="confirmNovaPosicao">Salvar</v-btn>
+                        </v-card-actions>
+                      </v-card>
+                      </v-dialog>
+
+                    </v-col>
+                  </v-row>
+                  
+                </v-card-text>
+              </v-card>
+
             </v-card>
           </v-form>
         </v-dialog>
@@ -263,6 +390,10 @@
     <template v-slot:item.ticker="{ item }">
       {{ item.Ticker.nome }} ({{ item.Ticker.id }})
     </template>
+    <template v-slot:item.investidor="{ item }">
+      {{ (item.InvestidorId != null ? item.Investidor.nome : null) }}<br />
+      {{ (item.CorretoraId != null ? '(' + item.Corretora.nome + ')' : null) }}
+    </template>
     <template v-slot:item.actions="{ item }">
       <v-icon
         class="me-2"
@@ -312,6 +443,9 @@ export default {
     },
     carteiraid: null,
     tiposOperacao: [], // Armazena os tipos de operação recuperados da API
+    posicoesTicker: [], // Armazena recuperados da API
+    Investidores: [], // Armazena recuperados da API
+    Corretoras: [], // Armazena recuperados da API
     CarteiraNome: "carregando...",
     formattedDate: '',
     tickers: [],
@@ -326,21 +460,28 @@ export default {
       { title: "Valor unitário", key: "valor_unitario", align: "center", value: "valor_unitario" },
       { title: "Taxas", key: "taxas", align: "center", value: "taxas" },
       { title: "Montante da operação", key: "total", align: "center", value: "total" },
+      { title: "Invest.", key: "investidor", align: "center" },
       { title: "Ações", value: "actions", align: "end", sortable: false },
     ],
     dialog: false,
     dialogDelete: false,
+    dialogNovaPosicao: false,
+    novaPosicaoData: '',
     editedIndex: -1,
     editedItem: {
       data: '',
       ticker: '',
       tipooperacao: '',
+      posicoesticker: '',
+      investidores: '',
+      corretoras: '',
       quantidade: '',
       valor_unitario: '',
       taxas: '',
       TickerId: '',
       TipoOperacaoId: '',
-      CarteiraId: ''
+      CarteiraId: '',
+      PosicaoAtivoId: '',
     },
     defaultItem: {
       // data: '',
@@ -400,6 +541,16 @@ export default {
     dialogDelete (val) {
       val || this.closeDelete()
     },
+    dialogNovaPosicao (val) {
+      val || this.closeNovaPosicao()
+    },
+    'editedItem.TickerId': {
+      handler(novoValor) {
+        if (novoValor) {
+          this.loadPosicoesTicker(novoValor);
+        }
+      }
+    },
   },
 
   created() {
@@ -428,6 +579,15 @@ export default {
       });
     },
 
+    // Método para carregar os tipos de operação da API
+    loadPosicoesTicker(item) {
+      api.get(`/posicaoativoe?TickerId=${item}`).then((response) => {
+        this.posicoesTicker = response.data;
+      }).catch(error => {
+        console.error("Erro ao carregar posições de ticker:", error);
+      });
+    },
+
     calculateTotal(quantidade, precoUnitario, taxas, moedaId) {
       const total = quantidade * precoUnitario + taxas;
       // Formata o valor total como moeda
@@ -446,12 +606,51 @@ export default {
         this.tickers = response.data;
         // console.log(response.data[0]["nome"]);
       });
+      api.get(`/carteira`).then((response) => {
+        this.carteiras = response.data;
+      });
+      api.get(`/investidor`).then((response) => {
+        this.Investidores = response.data;
+      });
+      api.get(`/corretora`).then((response) => {
+        this.Corretoras = response.data;
+      });
+
     },
 
     gotoOperacoes (item) {
       this.$router.push({ name: 'Operacoes', params: { id: item.id } });
     },
     
+    // Função para direcionar página para próxima carteira
+    nextCarteira() {
+      if (this.carteiras.length === 0) return;
+
+      // Encontrar o índice da carteira atual
+      const currentIndex = this.carteiras.findIndex(c => c.id == this.carteiraid);
+      // Calcular o índice da próxima carteira (circular)
+      // Exemplo: se estiver na última carteira, volta para a primeira
+      const nextIndex = (currentIndex + 1) % this.carteiras.length;
+      // Obter o ID da próxima carteira
+      const nextCarteiraId = this.carteiras[nextIndex].id;
+
+      // Redirecionar para a próxima carteira
+      this.$router.push({ name: 'operacoes', params: { id: nextCarteiraId } });
+      // Atualizar o ID da carteira e recarregar os itens
+      this.carteiraid = nextCarteiraId;
+      this.loadItems();
+    },
+
+    novaPosicao() {
+      this.novaPosicaoData = '';
+      this.dialogNovaPosicao = true;
+    },
+
+    closeNovaPosicao() {
+      this.dialogNovaPosicao = false;
+      this.novaPosicaoData = '';
+    },
+
     editItem (item) {
       this.editedIndex = this.items.indexOf(item)
       this.editedItem = Object.assign({}, item)
@@ -471,6 +670,26 @@ export default {
         this.loadItems(),
         this.closeDelete()
       );
+    },
+
+    confirmNovaPosicao() {
+      if (!this.novaPosicaoData || !this.rules.data(this.novaPosicaoData) === true) {
+        alert('Data inválida. Use o formato dd/mm/aaaa.');
+        return;
+      }
+
+      const novaPosicao = {
+        data_abertura: this.$formatDateToISO(this.novaPosicaoData),
+        data_fechamento: null,
+        TickerId: this.editedItem.TickerId,
+      };
+
+      api.post('/posicaoativo', novaPosicao).then(() => {
+        this.loadPosicoesTicker(this.editedItem.TickerId);
+        this.dialogNovaPosicao = false;
+      }).catch(error => {
+        console.error("Erro ao criar nova posição:", error);
+      });
     },
 
     close () {

@@ -3,7 +3,7 @@
   <v-data-table
     :headers="headers"
     :items="items"
-    :sort-by="[{ key: 'nome', order: 'asc' }]"
+    :sort-by="[{ key: 'id', order: 'asc' }]"
   >
     <template v-slot:top>
       <v-toolbar
@@ -147,6 +147,18 @@
         </v-dialog>
       </v-toolbar>
     </template>
+
+    <template v-slot:item.nome="{ item }">
+      {{ item.nome }}
+      <v-btn
+        flat
+        icon="mdi-link"
+        density="compact" 
+        size="small"
+        @click="gotoDashboard(item)"
+      ></v-btn>
+    </template>
+
     
     <template v-slot:item.actions="{ item }">
       <v-icon

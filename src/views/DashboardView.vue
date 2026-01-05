@@ -4,7 +4,14 @@
   <v-toolbar flat>
     <v-toolbar-title>
       <v-icon>mdi-monitor-dashboard</v-icon>
-      Dashboard {{ CarteiraNome }}
+      Dashboard {{ CarteiraNome }} 
+      <v-btn
+        color="primary"
+        icon="mdi-arrow-right-circle"
+        density="comfortable" 
+        @click="nextCarteira"
+        title="Próxima carteira"
+      ></v-btn>
     </v-toolbar-title>
     <v-spacer></v-spacer>
     <v-btn
@@ -45,6 +52,27 @@
           <v-btn value="table" icon="mdi-table" title="Visualização em tabela"></v-btn>
           <v-btn value="cards" icon="mdi-view-grid" title="Visualização em cards"></v-btn>
         </v-btn-toggle>
+
+        <v-menu
+          v-if="viewMode === 'table'"
+          offset-y
+          :close-on-content-click="false"
+        >
+          <template v-slot:activator="{ props }">
+            <v-btn
+              icon="mdi-view-column"
+              v-bind="props"
+              density="compact"
+              class="ml-2"
+              title="Selecionar colunas"
+            ></v-btn>
+          </template>
+          <v-list>
+            <v-list-item v-for="header in headers" :key="header.key">
+              <v-checkbox-btn v-model="header.visible" :label="header.title" density="compact"></v-checkbox-btn>
+            </v-list-item>
+          </v-list>
+        </v-menu>
       </div>
     </v-card-title>
     
@@ -83,7 +111,8 @@
     <!-- Visualização em Tabela -->
     <v-data-table
       v-if="viewMode === 'table'"
-      :headers="headers"
+      v-model:sort-by="sortBy"
+      :headers="visibleHeaders"
       :items="filteredItems"
       item-key="id"
       hover
@@ -98,7 +127,25 @@
           density="compact" 
           size="small"
           @click="(item.cotacao) ? abrirDialog(item) : null"
-        ></v-btn>
+        ></v-btn> <sup>{{ multiplePosicoes.find(i => i.TickerId == item.Ticker.id)?.agg_id }}</sup>
+        <div>
+          <small>
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props" density="compact">
+                  {{ $formatCurrency(item.preco_medio_historico, item.Ticker.MoedaId) }}
+                </span>
+              </template>
+              <div>Preço médio histórico</div>
+            </v-tooltip>
+            <v-icon 
+              size="x-small" 
+              icon="mdi-information-outline" 
+              style="position: relative; padding-left: 5px; padding-bottom: 7px "
+            ></v-icon>
+          </small>
+        </div>
+
       </template>
 
       <template v-slot:item.ticker="{ item }">
@@ -114,7 +161,24 @@
           </span>        
       </template>
       <template v-slot:item.investido="{ item }">
-        {{ $formatCurrency(item.investido, item.Ticker.MoedaId) }}
+        {{ $formatCurrency(item.investido, item.Ticker.MoedaId) }}<br />
+        <small>
+          <div v-if="item.valor_investido > 0">
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props">
+                  {{ $formatCurrency(item.valor_investido, item.Ticker.MoedaId) }}
+                </span>
+              </template>
+              <div>Valor dos aportes</div>
+            </v-tooltip>
+            <v-icon 
+              size="x-small" 
+              icon="mdi-information-outline" 
+              style="position: absolute; padding-left: 5px; "
+            ></v-icon>
+          </div>
+        </small>
         <span v-if="item.Ticker.MoedaId != 1">
           <br />{{ $formatCurrency(item.investido * this.dolar, 1) }}
         </span>        
@@ -139,6 +203,40 @@
         <v-chip density="compact" :style="{ color: item.rendimento < 0 ? 'red' : item.rendimento > 10 ? 'green' : 'black' }">
           {{ item.cotacao ? item.rendimento.toFixed(2) + "%" : "N/A" }}
         </v-chip>
+        <div v-if="item.investido > 0">
+          <small>
+            <span v-if="item.valor_investido > 0" style="padding-right: 5px;">
+              <v-tooltip location="top">
+                <template v-slot:activator="{ props }">
+                  <span v-bind="props" density="compact" :style="{ color: item.rendimento_valor < 0 ? 'red' : 'green' }">
+                    {{ item.cotacao ? item.rendimento_valor.toFixed(2) + "%" : "N/A" }}
+                  </span>
+                </template>
+                <div>Rendimento considerando aportes</div>
+              </v-tooltip>
+              <!-- <v-icon 
+                size="x-small" 
+                icon="mdi-information-outline" 
+                style="position: relative; padding-left: 5px; padding-bottom: 7px "
+              ></v-icon> -->
+            </span>
+            <span v-if="item.valor_investido > 0">
+              <v-tooltip location="top">
+                <template v-slot:activator="{ props }">
+                  <span v-bind="props" density="compact" :style="{ color: item.rendimento_pm_historico < 0 ? 'red' : 'green' }">
+                    {{ item.cotacao ? item.rendimento_pm_historico.toFixed(2) + "%" : "N/A" }}
+                  </span>
+                </template>
+                <div>Rendimento sobre o PM histórico</div>
+              </v-tooltip>
+              <!-- <v-icon 
+                size="x-small" 
+                icon="mdi-information-outline" 
+                style="position: relative; padding-left: 5px; padding-bottom: 7px "
+              ></v-icon> -->
+            </span>
+          </small>
+        </div>
       </template>
       <template v-slot:item.proventos="{ item }">
         {{ $formatCurrency(item.proventos, item.Ticker.MoedaId) }}
@@ -149,6 +247,19 @@
       <template v-slot:item.hoje="{ item }">
         <v-chip :style="{ color: item.hoje < 0 ? 'red' : 'green' }">
           {{ item.close ? item.hoje.toFixed(2) + "%" : "N/A" }}
+        </v-chip>
+      </template>
+      <template v-slot:item.tipo_ativo="{ item }">
+        {{ item.tipoAtivoNome }}
+      </template>
+      <template v-slot:item.tipo_ativo_classificacao="{ item }">
+        {{ item.tipoAtivoClassificacaoNome }}
+      </template>
+      <template v-slot:item.percentual_carteira="{ item }">
+        <v-chip v-if="item.percentualCarteira" density="compact">
+          <small>
+            {{ ((item.quantidade * item.cotacao * (item.Ticker.MoedaId !== 1 ? dolar : 1)) / totalPortfolioValue * 100).toFixed(2) }}%
+          </small>
         </v-chip>
       </template>
       <template v-slot:no-data>
@@ -176,11 +287,13 @@
             height="100%"
           >
             <v-card-title class="d-flex justify-space-between align-center">
-              <div class="d-flex align-center">
-                <v-avatar color="primary" size="40" class="mr-2">
-                  <span class="text-h6">{{ item.Ticker.nome.substring(0, 2) }}</span>
-                </v-avatar>
-                <span class="text-h6">{{ item.Ticker.nome }}</span>
+              <div>
+                <div class="d-flex align-center">
+                  <v-avatar color="primary" size="40" class="mr-2">
+                    <span class="text-h6">{{ item.Ticker.nome.substring(0, 2) }}</span>
+                  </v-avatar>
+                  <span class="text-h6">{{ item.Ticker.nome }}</span>
+                </div>
               </div>
               <v-chip 
                 :color="item.rendimento >= 0 ? 'success' : 'error'"
@@ -311,6 +424,7 @@
             :items="operacoesselecionadas"
             item-key="id"
             hide-default-footer
+            items-per-page=0
             >
             <template v-slot:item.TipoOperacaoId="{ item }">
               {{ item.TipoOperacao.nome.substring(0, 1) }}
@@ -322,7 +436,11 @@
             <template v-slot:item.data="{ item }">
               {{ $formatDate(item.data) }}
               <span v-if="item.cotacao_dolar">
-                <br />{{ $formatCurrency(item.cotacao_dolar, 1) }}
+                <br />{{ $formatCurrency(item.cotacao_dolar, 1) }}<br />
+              </span>
+              <span v-if="item.InvestidorId || item.CorretoraId">
+                {{ (item.InvestidorId != null ? item.Investidor.nome : null) }} 
+                {{ (item.CorretoraId != null ? '(' + item.Corretora.nome + ')' : null) }}
               </span>
             </template>
             <template v-slot:item.valor_unitario="{ item }">
@@ -362,11 +480,11 @@
                 <td>
                   <strong>
                     {{ $formatCurrency(this.posicaoPrecoMedio, itemSelecionado?.Ticker.MoedaId) }}
-                    
                   </strong>
                   <span v-if="itemSelecionado?.Ticker.MoedaId != 1">
                     <br />{{ $formatCurrency(this.posicaoPrecoMedio*this.dolar, 1) }}
                   </span>
+                  <br />(s/taxas)
                 </td>
                 <td>
                   <strong>{{ $formatCurrency(taxas, itemSelecionado?.Ticker.MoedaId) }}</strong>
@@ -409,13 +527,17 @@ import api from "../services/api";
 import stockService from "@/services/stockService";
 import MenuCarteira from '@/components/MenuCarteira.vue'
 import { mapActions, mapGetters } from 'vuex'
-import { el } from "date-fns/locale";
+
+// Chaves únicas para o LocalStorage
+const SORT_BY_STORAGE_KEY = 'DashboardSortBy';
+const COLUMN_VISIBILITY_KEY = 'dashboardColumnVisibility';
 
 export default {
   components: {
     MenuCarteira,
   },
   data: () => ({
+    sortBy: [{ key: 'Ticker.nome', order: 'asc' }],
     posicoesAtivo: [],
     posicaoAtivoSelecionado: null,
     posicaoPrecoMedio: 0,
@@ -433,6 +555,7 @@ export default {
     filters: {
       ticker: null,
     },
+    carteiras: [],
     tickers: [],
     symbols: [],
     symbols_id: null,
@@ -442,19 +565,25 @@ export default {
     carteiraid: null,
     CarteiraNome: "carregando...",
     items: [],
+    tiposAtivo: [],
+    tiposAtivoClassificacao: [],
     multipleProventos: [],
-    headers: [
-      { title: "Ticker", key:"ticker", value: "Ticker.nome", align: "center" },
-      { title: "Qtde.", key:"quantidade", value: "quantidade", align: "end" },
-      { title: "Preço médio", key: "preco_medio", value: "preco_medio", align: "end" },
-      { title: "Investido", key: "investido", value: "investido", align: "end" },
-      { title: "Atual", key: "atual", value: "atual", align: "end" },
-      { title: "Cotação", key: "cotacao", value: "cotacao", align: "end" },
-      { title: "L/P", key: "lp", value: "lp", align: "end" },
-      { title: "Rendimento", key: "rendimento", value: "rendimento", align: "end" },
-      { title: "Realizado", key: "lucro_realizado", value: "lucro_realizado", align: "end" },
-      { title: "Proventos", key: "proventos", value: "proventos", align: "end" },
-      { title: "% Hoje", key: "hoje", value: "hoje" },
+    multiplePosicoes: [],
+    headers: [ // Adicionado 'visible: true' a cada header
+      { title: "Ticker", key:"ticker", value: "Ticker.nome", align: "center", visible: true },
+      { title: "Tipo", key:"tipo_ativo", value: "tipoAtivoNome", align: "center", visible: true },
+      { title: "Classificação", key:"tipo_ativo_classificacao", value: "tipoAtivoClassificacaoNome", align: "center", visible: true },
+      { title: "% Cart.", key:"percentual_carteira", value: "percentualCarteira", align: "end", visible: true },
+      { title: "Qtde.", key:"quantidade", value: "quantidade", align: "end", visible: true },
+      { title: "Preço médio", key: "preco_medio", value: "preco_medio", align: "center", visible: true },
+      { title: "Investido", key: "investido", value: "investido", align: "end", visible: true },
+      { title: "Atual", key: "atual", value: "atual", align: "end", visible: true },
+      { title: "Cotação", key: "cotacao", value: "cotacao", align: "end", visible: true },
+      { title: "L/P", key: "lp", value: "lp", align: "end", visible: true },
+      { title: "Rendimento", key: "rendimento", value: "rendimento", align: "end", visible: true },
+      { title: "Realizado", key: "lucro_realizado", value: "lucro_realizado", align: "end", visible: true },
+      { title: "Proventos", key: "proventos", value: "proventos", align: "end", visible: true },
+      { title: "% Hoje", key: "hoje", value: "hoje", visible: true },
     ],
   }),
 
@@ -462,6 +591,17 @@ export default {
     ...mapGetters('filters', {
       filtrosDashboard: 'getFiltros'
     }),
+
+    totalPortfolioValue() {
+      if (!this.items || this.items.length === 0 || !this.dolar) {
+        return 0;
+      }
+      return this.items.reduce((total, item) => {
+        const valorAtual = (item.quantidade || 0) * (item.cotacao || 0);
+        const valorEmReais = item.Ticker.MoedaId !== 1 ? valorAtual * this.dolar : valorAtual;
+        return total + valorEmReais;
+      }, 0);
+    },
     
     filteredItems() {
       const filtros = this.filtrosDashboard('dashboard')
@@ -470,6 +610,10 @@ export default {
         return matchesTicker
       })
     },
+    
+    visibleHeaders() {
+      return this.headers.filter(h => h.visible)
+    },
 
     carteiraId() {
       return this.$route.params.id
@@ -477,6 +621,19 @@ export default {
   },
 
   watch: {
+    headers: {
+      handler() {
+        this.saveColumnVisibility();
+      },
+      deep: true
+    },
+    sortBy: {
+      handler(newSortBy) {
+        // O v-model atualiza 'sortBy', e este watcher salva no LocalStorage
+        localStorage.setItem(SORT_BY_STORAGE_KEY, JSON.stringify(newSortBy));
+      },
+      deep: true // Necessário porque 'sortBy' é um array de objetos
+    },
     multipleQuotes: {
       handler(novoValor) {
         this.atualizaCotacoes();
@@ -490,15 +647,65 @@ export default {
       },
       deep: true
     },
+
+    multiplePosicoes: {
+      handler(novoValor) {
+        this.atualizaPosicoes();
+      },
+      deep: true
+    },
   },
 
   created() {
+    this.loadPersistentSort();
+    this.loadColumnVisibility();
     this.carteiraid = this.$route.params.id;
     this.loadItems();
+    this.loadTiposAtivo();
+    this.loadTiposAtivoClassificacao();
     this.fetchDolarQuote();
   },
 
   methods: {
+    saveColumnVisibility() {
+      const visibilityConfig = this.headers.reduce((acc, header) => {
+        acc[header.key] = header.visible;
+        return acc;
+      }, {});
+      localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(visibilityConfig));
+    },
+
+    loadColumnVisibility() {
+      const savedVisibility = localStorage.getItem(COLUMN_VISIBILITY_KEY);
+      if (savedVisibility) {
+        try {
+          const visibilityConfig = JSON.parse(savedVisibility);
+          this.headers.forEach(header => {
+            if (visibilityConfig[header.key] !== undefined) {
+              header.visible = visibilityConfig[header.key];
+            }
+          });
+        } catch (e) {
+          console.error('Erro ao carregar a visibilidade das colunas:', e);
+          localStorage.removeItem(COLUMN_VISIBILITY_KEY);
+        }
+      }
+    },
+    getTipoAtivoNome(tipoAtivoId) {
+      if (!this.tiposAtivo.length) return '';
+      const tipoAtivo = this.tiposAtivo.find(t => t.id === tipoAtivoId);
+      return tipoAtivo ? tipoAtivo.nome : '';
+    },
+
+    getTipoAtivoClassificacaoNome(tipoAtivoClassificacaoId) {
+      // 1. Verifica se a lista está vazia e retorna nulo para evitar erros
+      if (!this.tiposAtivoClassificacao.length) return '';
+      // 2. Busca pelo item
+      const tipoAtivoClassificacao = this.tiposAtivoClassificacao.find(t => t.id === tipoAtivoClassificacaoId);
+      // 3. Retorno do resultado
+      return tipoAtivoClassificacao ? tipoAtivoClassificacao.nome : '';
+    },
+
     // abrirDialog(item) {
     //   this.itemSelecionado = item;
     //   this.stockSymbol = item.Ticker.nome;
@@ -522,6 +729,22 @@ export default {
       
     //   this.dialog = true;
     // },
+
+    loadPersistentSort() {
+      const persistentSortBy = localStorage.getItem(SORT_BY_STORAGE_KEY);
+      if (persistentSortBy) {
+        try {
+          const parsedSortBy = JSON.parse(persistentSortBy);
+          // Garante que é um array (formato do v-data-table)
+          if (Array.isArray(parsedSortBy)) { 
+            this.sortBy = parsedSortBy;
+          }
+        } catch (e) {
+          console.error('Erro ao carregar ordenação salva:', e);
+          localStorage.removeItem(SORT_BY_STORAGE_KEY);
+        }
+      }
+    },
 
     abrirDialog(item) {
       this.itemSelecionado = item;
@@ -563,18 +786,27 @@ export default {
         // Para compra, bonificação e subscrição, o PM_posicao é calculado como a média ponderada do PM_posicao anterior
         let pmPosicaoAnterior = 0;
         let quantidadeAcumulada = 0;
+        let taxasAcumuladas = 0;
+        let valorInvestidoAcumulado = 0;
         selecionadas = selecionadas.map(op => {
           if (op.TipoOperacaoId === 1 || op.TipoOperacaoId === 3 || op.TipoOperacaoId === 4) {
             // Compra, bonificação ou subscrição
             const totalAnterior = pmPosicaoAnterior * quantidadeAcumulada;
             quantidadeAcumulada += op.quantidade;
             pmPosicaoAnterior = (totalAnterior + (op.valor_unitario * op.quantidade)) / quantidadeAcumulada;
+            valorInvestidoAcumulado += op.valor_unitario * op.quantidade;
           } else if (op.TipoOperacaoId === 2) {
             // Venda
             quantidadeAcumulada -= op.quantidade;
             // O PM_posicao permanece o mesmo em vendas
           }
-          return { ...op, PM_posicao: pmPosicaoAnterior };
+          taxasAcumuladas += op.taxas || 0;
+          return { 
+            ...op, 
+            PM_posicao: pmPosicaoAnterior,
+            taxas_acumuladas: taxasAcumuladas,
+            valor_investido_acumulado: valorInvestidoAcumulado
+          };
         });
 
         this.posicaoPrecoMedio = pmPosicaoAnterior;
@@ -711,7 +943,8 @@ export default {
     },
 
     exibirConsole() {
-      console.log(this.items);
+      // console.log(this.items);
+      console.log(this.carteiras);
     },
 
     atualizaCotacoes() {
@@ -726,12 +959,19 @@ export default {
         }
 
         item.rendimento = this.calcularRendimento(item);
+        item.rendimento_valor = this.calcularRendimento_valor(item);
+        item.rendimento_pm_historico = this.calcularRendimento_pm_historico(item);
+        
         item.hoje = this.calcularHoje(item);
+        // Adiciona o percentual da carteira para ordenação
+        item.percentualCarteira = (item.quantidade * item.cotacao * (item.Ticker.MoedaId !== 1 ? this.dolar : 1)) / this.totalPortfolioValue;
       });
 
       this.items = this.items.map(item => ({
         ...item,
         rendimento: this.calcularRendimento(item),
+        rendimento_valor: this.calcularRendimento_valor(item),
+        rendimento_pm_historico: this.calcularRendimento_pm_historico(item),
         hoje: this.calcularHoje(item),
       }));
     },
@@ -742,6 +982,23 @@ export default {
           if (provento) {
               // item.proventos = provento.total;
           }
+      });
+    },
+
+    atualizaPosicoes() {
+      this.items = this.items.map(item => {
+          const posicao = this.multiplePosicoes.find(c => c.tickerId == item.Ticker.id);
+          if (posicao) {
+              return { ...item, numero_posicoes: posicao.agg_id };
+          }
+
+          // TODO: Pensar lugar melhor para colocar isso
+          // Adiciona o nome do tipo de ativo para ordenação
+          item.tipoAtivoNome = this.getTipoAtivoNome(item.Ticker.TipoAtivoId);
+          // Adiciona o nome da classificação para ordenação
+          item.tipoAtivoClassificacaoNome = this.getTipoAtivoClassificacaoNome(item.Ticker.TipoAtivoClassificacaoId);
+
+          return item;
       });
     },
 
@@ -787,6 +1044,41 @@ export default {
       }
     },
 
+    async fetchMultiplePosicoes() {
+      if (!this.symbols) return;
+      
+      try {
+        api.get(`/aggregation/PosicaoAtivo/id/count/TickerId?ativos=${this.symbols_id}&CarteiraId=${this.carteiraid}`).then((response) => {
+          this.multiplePosicoes = response.data;
+          
+        });
+      } catch (error) {
+        console.error('Erro ao buscar múltiplas posições:', error);
+      }
+    },
+
+    calcularRendimento_pm_historico(item) {
+      const { quantidade, cotacao, preco_medio_historico } = item;
+
+      if (!preco_medio_historico || isNaN(quantidade) || isNaN(cotacao) || isNaN(preco_medio_historico)) {
+        return 0;
+      }
+
+      const rendimento = ((quantidade * cotacao - (quantidade * preco_medio_historico)) / (quantidade * preco_medio_historico)) * 100;
+      return rendimento;
+    },
+
+    calcularRendimento_valor(item) {
+      const { quantidade, cotacao, valor_investido } = item;
+
+      if (!valor_investido || isNaN(quantidade) || isNaN(cotacao) || isNaN(valor_investido)) {
+        return 0;
+      }
+
+      const rendimento = ((quantidade * cotacao - valor_investido) / valor_investido) * 100;
+      return rendimento;
+    },
+
     calcularRendimento(item) {
       const { quantidade, cotacao, investido } = item;
 
@@ -828,6 +1120,25 @@ export default {
       return hoje;
     },
 
+    // Função para direcionar página para próxima carteira
+    nextCarteira() {
+      if (this.carteiras.length === 0) return;
+
+      // Encontrar o índice da carteira atual
+      const currentIndex = this.carteiras.findIndex(c => c.id == this.carteiraid);
+      // Calcular o índice da próxima carteira (circular)
+      // Exemplo: se estiver na última carteira, volta para a primeira
+      const nextIndex = (currentIndex + 1) % this.carteiras.length;
+      // Obter o ID da próxima carteira
+      const nextCarteiraId = this.carteiras[nextIndex].id;
+
+      // Redirecionar para a próxima carteira
+      this.$router.push({ name: 'dashboard', params: { id: nextCarteiraId } });
+      // Atualizar o ID da carteira e recarregar os itens
+      this.carteiraid = nextCarteiraId;
+      this.loadItems();
+    },
+
     loadItems() {
       api.get(`/dashboards?CarteiraId=${this.carteiraid}`).then((response) => {
         this.items = response.data;
@@ -835,12 +1146,32 @@ export default {
         this.symbols_id = this.items.map(item => item.Ticker.id);
         this.fetchMultipleStockQuotes();
         this.fetchMultipleProventos();
+        this.fetchMultiplePosicoes();
       });
       api.get(`/carteira?id=${this.carteiraid}`).then((response) => {
         this.CarteiraNome = response.data[0]["nome"];
       });
       api.get(`/ticker`).then((response) => {
         this.tickers = response.data;
+      });
+      api.get(`/carteira`).then((response) => {
+        this.carteiras = response.data;
+      });
+    },
+
+    loadTiposAtivo() {
+      api.get("/tipoativo").then((response) => {
+        this.tiposAtivo = response.data;
+      }).catch(error => {
+        console.error("Erro ao carregar tipos de ativo:", error);
+      });
+    },
+
+    loadTiposAtivoClassificacao() {
+      api.get("/tipoativoclassificacao").then((response) => {
+        this.tiposAtivoClassificacao = response.data;
+      }).catch(error => {
+        console.error("Erro ao carregar classificação de ativos:", error);
       });
     },
   },

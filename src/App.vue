@@ -13,6 +13,8 @@
         <v-list-item prepend-icon="mdi-wallet" title="Carteiras" value="carteiras" to="/carteiras"></v-list-item>
         <v-list-item prepend-icon="mdi-file-certificate-outline" title="Opções" value="opcoes" to="/opcoes"></v-list-item>
         <v-list-item prepend-icon="mdi-factory" title="Tickers" value="tickers" to="/tickers"></v-list-item>
+        <v-list-item prepend-icon="mdi-account-group" title="Investidores" value="investidores" to="/investidores"></v-list-item>
+        <v-list-item prepend-icon="mdi-domain" title="Corretoras" value="corretoras" to="/corretoras"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Ativo" value="tiposativo" to="/tiposativo"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Operação" value="tiposoperacao" to="/tiposoperacao"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Provento" value="tiposprovento" to="/tiposprovento"></v-list-item>
@@ -35,7 +37,7 @@
 <script setup>
   import { ref } from 'vue'
 
-  const drawer = ref(null)
+  const drawer = ref(false)
 </script>
 
 <script>

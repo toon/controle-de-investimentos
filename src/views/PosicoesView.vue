@@ -3,23 +3,24 @@
   <v-data-table
     :headers="headers"
     :items="items"
-    :sort-by="[{ key: 'nome', order: 'asc' }]"
+    :sort-by="[{ key: 'data_abertura', order: 'desc' }]"
     items-per-page="50"
   >
     <template v-slot:top>
       <v-toolbar
         flat
       >
-        <v-toolbar-title><v-icon>mdi-factory</v-icon> Tickers</v-toolbar-title>
+        <v-toolbar-title><v-icon>mdi-archive</v-icon> Posições de {{ ItemNome }}</v-toolbar-title>
         <v-divider
           class="mx-4"
           inset
           vertical
         ></v-divider>
         <v-spacer></v-spacer>
+
         <v-dialog
           v-model="dialog"
-          max-width="500px"
+          max-width="600px"
         >
           <template v-slot:activator="{ props }">
             <v-btn
@@ -31,81 +32,41 @@
               Novo item
             </v-btn>
           </template>
-          <v-form ref="form" v-model="valid" lazy-validation>
+
+          <v-form ref="form" v-model="valid">
             <v-card>
               <v-card-title>
-                <span class="text-h5">{{ formTitle }}</span>
+                <span class="text-h5">{{ formTitle }}</span> <span v-if="this.editedIndex !== -1">{{ this.editedItem.id }}</span>
               </v-card-title>
 
               <v-card-text>
                 <v-container>
                   <v-row>
-
+                    
                     <v-col
-                      cols="12"
-                      md="12"
-                      sm="12"
-                    >
-                      <v-text-field
-                        v-model="editedItem.descricao"
-                        label="Descrição"
-                      ></v-text-field>
-                    </v-col>
-                    <v-col
-                      cols="12"
-                      md="12"
-                      sm="12"
-                    >
-                      <v-text-field
-                        v-model="editedItem.nome"
-                        label="Ticker"
-                      ></v-text-field>
-                    </v-col>
-
-                    <v-col
-                      cols="12"
-                      md="12"
-                      sm="12"
-                    >
-                      <v-autocomplete
-                        key="select-key" 
-                        v-model="editedItem.TipoAtivoId"
-                        :items="tiposAtivo"
-                        item-title="nome"
-                        item-value="id"
-                        label="Tipo ativo"
-                        :rules="[rules.required]"
-                      ></v-autocomplete>
-                    </v-col>
-
-                    <v-col
-                      cols="12"
-                      md="12"
-                      sm="12"
-                    >
-                      <v-autocomplete
-                        key="select-key" 
-                        v-model="editedItem.MoedaId"
-                        :items="moedas"
-                        item-title="nome"
-                        item-value="id"
-                        label="Moeda"
-                        :rules="[rules.required]"
-                      ></v-autocomplete>
-                    </v-col>
-
-
-                    <v-col
-                      cols="12"
+                    cols="12"
                       md="4"
-                      sm="6"
                     >
-                      <v-checkbox
-                        v-model="editedItem.ativo"
-                        label="Ativo?"
-                      ></v-checkbox>
+                      <v-text-field
+                        v-model="formattedDate1"
+                        label="Data abertura"
+                        :rules="[rules.required, rules.data]"
+                      ></v-text-field>
                     </v-col>
+
+                    <v-col
+                    cols="12"
+                      md="4"
+                    >
+                      <v-text-field
+                        v-model="formattedDate2"
+                        label="Data fechamento"
+                        :rules="[rules.data]"
+                      ></v-text-field>
+                    </v-col>
+
                   </v-row>
+                  
                 </v-container>
               </v-card-text>
 
@@ -141,16 +102,16 @@
           </v-card>
         </v-dialog>
       </v-toolbar>
+
+    </template>
+    <template v-slot:item.data_abertura="{ item }">
+      {{ $formatDate(item.data_abertura) }}
+    </template>
+    <template v-slot:item.data_fechamento="{ item }">
+      {{ $formatDate(item.data_fechamento) }}
+      <span v-if="item.data_fechamento == null">(em aberto)</span>
     </template>
     <template v-slot:item.actions="{ item }">
-      <v-icon
-        class="me-2"
-        size="small"
-        @click="gotoPosicoes(item)"
-        title="Posições do ativo"
-      >
-        mdi-archive
-      </v-icon>
       <v-icon
         class="me-2"
         size="small"
@@ -186,44 +147,63 @@ import api from "../services/api";
 
 export default {
   data: () => ({
+    mostrarCard: false,
+    valid: false,
+    itemid: null,
+    ItemNome: "carregando...",
+    formattedDate1: '',
+    formattedDate2: '',
     items: [],
-    moedas: [], // Armazena os tipos de operação recuperados da API
-    tiposAtivo: [], // Armazena os tipos de operação recuperados da API
     headers: [
-      { title: "Cód", value: "id", key: "id" },
-      { title: "Ticker", key:"nome", value: "nome" },
-      { title: "Descrição", key:"descricao", value: "descricao" },
-      { title: "Tipo ativo", key:"tipoativo", align: "center", value: "TipoAtivo.nome" },
-      { title: "Moeda", key:"moeda", value: "Moeda.nome" },
-      { title: "Status", key: "ativo", align: "center", value: "ativo" },
+      { title: "Id", value: "id", align: "center", key: "id" },
+      { title: "Data abertura", key:"data_abertura", align: "center", value: "data_abertura" },
+      { title: "Data fechamento", key:"data_fechamento", align: "center", value: "data_fechamento" },
       { title: "Ações", value: "actions", align: "end", sortable: false },
     ],
     dialog: false,
     dialogDelete: false,
     editedIndex: -1,
     editedItem: {
-      nome: '',
-      TipoAtivoId: '',
+      data_abertura: '',
+      data_fechamento: '',
+      TickerId: '',
     },
     defaultItem: {
-      nome: ''
+      // data: '',
+      // ticker: 'BBDC4',
+      // tipoprovento: '1',
+      // quantidade: 10,
+      // valor_unitario: 10.8,
+      // taxas: 1.6,
+      // TickerId: 2,
+      // TipoProventoId: 1,
+      // ItemId: 1
+
     },
     rules: {
       required: value => !!value || 'Campo obrigatório',
-      data: value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
+      data: value => {
+        if (!value) return true; // Se vazio, não valida formato
+        return /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida';
+      },
+      // data: value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
     },
+
   }),
 
   computed: {
+
     formTitle () {
       return this.editedIndex === -1 ? 'Novo item' : 'Editar item'
     },
+
     dateRules() {
       return [
         value => !!value || 'Campo obrigatório',
         value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
       ];
     },
+
   },
 
   watch: {
@@ -236,47 +216,32 @@ export default {
   },
 
   created() {
+    this.itemid = this.$route.params.id;
     this.loadItems();
-    this.loadtiposAtivo();
-    this.loadmoedas();
   },
 
   methods: {
 
-    gotoPosicoes (item) {
-      this.$router.push({ name: 'posicoes', params: { id: item.id } });
-    },
-
-    // Método para carregar os tipos de operação da API
-    loadmoedas() {
-      api.get("/moeda").then((response) => {
-        this.moedas = response.data;
-        // console.log(this.moedas);
-      }).catch(error => {
-        console.error("Erro ao carregar moedas:", error);
-      });
-    },
-    
-    // Método para carregar os tipos de operação da API
-    loadtiposAtivo() {
-      api.get("/tipoativo").then((response) => {
-        this.tiposAtivo = response.data;
-        // console.log(this.tiposAtivo);
-      }).catch(error => {
-        console.error("Erro ao carregar tipos de ativo:", error);
-      });
-    },
-
     loadItems() {
-      api.get("/tickers").then((response) => {
+      api.get(`/posicaoativoe?TickerId=${this.itemid}`).then((response) => {
         this.items = response.data;
-        console.log(this.items);
       });
+      api.get(`/tickere?id=${this.itemid}`).then((response) => {
+        this.ItemNome = response.data[0]["nome"];
+        // console.log(response.data[0]["nome"]);
+      });
+      // api.get(`/ticker`).then((response) => {
+      //   this.tickers = response.data;
+      //   // console.log(response.data[0]["nome"]);
+      // });
     },
-    
+
     editItem (item) {
       this.editedIndex = this.items.indexOf(item)
       this.editedItem = Object.assign({}, item)
+      this.formattedDate1 = this.$formatDate(item.data_abertura)
+      this.formattedDate2 = this.$formatDate(item.data_fechamento)
+      console.log(this.editedItem)
       this.dialog = true
     },
 
@@ -287,7 +252,7 @@ export default {
     },
 
     deleteItemConfirm () {
-      api.delete(`/ticker/${this.editedItem.id}`).then(() => 
+      api.delete(`/posicaoativo/${this.editedItem.id}`).then(() => 
         this.loadItems(),
         this.closeDelete()
       );
@@ -295,6 +260,8 @@ export default {
 
     close () {
       this.dialog = false
+      this.formattedDate1 = "";
+      this.formattedDate2 = "";
       this.$nextTick(() => {
         this.editedItem = Object.assign({}, this.defaultItem)
         this.editedIndex = -1
@@ -308,22 +275,23 @@ export default {
         this.editedIndex = -1
       })
     },
-
+    
     save () {
 
       this.$refs.form.validate().then((formResult) => {
 
         if (formResult.valid) {
 
-          //this.editedItem.data = this.formatDateToISO(this.formattedDate);
-          //this.editedItem.CarteiraId = this.carteiraid;
+          this.editedItem.data_abertura = this.$formatDateToISO(this.formattedDate1);
+          this.editedItem.data_fechamento = this.formattedDate2 ? this.$formatDateToISO(this.formattedDate2) : null;
+          this.editedItem.TickerId = this.$route.params.id;
           
           if (this.editedIndex > -1) {
-            api.put(`/ticker/${this.editedItem.id}`, this.editedItem).then(() => 
+            api.put(`/posicaoativo/${this.editedItem.id}`, this.editedItem).then(() => 
               this.loadItems()
             )
           } else {
-            api.post("/ticker", this.editedItem).then(() => 
+            api.post("/posicaoativo", this.editedItem).then(() => 
               this.loadItems()
             )
           }
@@ -333,19 +301,6 @@ export default {
       });      
 
     },
-
-/*    save () {
-      if (this.editedIndex > -1) {
-        api.put(`/ticker/${this.editedItem.id}`, this.editedItem).then(() => 
-          this.loadItems()
-        )
-      } else {
-        api.post("/ticker", this.editedItem).then(() => 
-          this.loadItems()
-        )
-      }
-      this.close()
-    },*/
   },
 }
 </script>
