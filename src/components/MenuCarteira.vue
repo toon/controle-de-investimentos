@@ -10,7 +10,7 @@
         v-for="item in items"
         :key="item.value"
         :value="item.value"
-        :to="(item.value=='carteiras') ? `/carteiras` : `/carteiras/${item.to}/${carteiraId}`"
+        :to="(item.value=='carteiras') ? `/carteiras` : `/carteiras/${item.to}`"
         :prepend-icon="item.icon"
       >
         {{ item.title }}

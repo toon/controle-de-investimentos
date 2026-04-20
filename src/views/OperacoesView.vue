@@ -10,14 +10,7 @@
         flat
       >
         <v-toolbar-title>
-          <v-icon>mdi-finance</v-icon> Operações {{ CarteiraNome }}
-          <v-btn
-            color="primary"
-            icon="mdi-arrow-right-circle"
-            density="comfortable" 
-            @click="nextCarteira"
-            title="Próxima carteira"
-          ></v-btn>
+          <v-icon>mdi-finance</v-icon> Operações 
         </v-toolbar-title>
         <v-divider
           class="mx-4"
@@ -289,7 +282,7 @@
         </v-dialog>
       </v-toolbar>
 
-      <MenuCarteira :carteira-id="$route.params.id" />
+      <MenuCarteira />
 
       <!-- Filtros em linha única acima da tabela -->
       <v-card flat class="mb-4">
@@ -319,11 +312,31 @@
             
             <v-col cols="12" sm="2" md="2">
               <v-autocomplete
+                v-model="filters.carteiras"
+                :items="carteiras"
+                item-title="nome"
+                item-value="id"
+                label="Carteiras"
+                multiple
+                chips
+                closable-chips
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+              ></v-autocomplete>
+            </v-col>
+
+            <v-col cols="12" sm="2" md="2">
+              <v-autocomplete
                 v-model="filters.ticker"
                 :items="tickers"
                 item-title="nome"
                 item-value="id"
                 label="Ticker"
+                multiple
+                chips
+                closable-chips
                 clearable
                 density="compact"
                 variant="outlined"
@@ -338,6 +351,9 @@
                 item-title="nome"
                 item-value="id"
                 label="Operação"
+                multiple
+                chips
+                closable-chips
                 clearable
                 density="compact"
                 variant="outlined"
@@ -434,19 +450,19 @@ export default {
     MenuCarteira,
   },
   data: () => ({
-    mostrarCard: false,
+    mostrarCard: true,
     valid: false,
     filters: {
       data: '',
-      ticker: null,
-      tipoOperacao: null
+      ticker: [],
+      tipoOperacao: [],
+      carteiras: []
     },
-    carteiraid: null,
     tiposOperacao: [], // Armazena os tipos de operação recuperados da API
+    carteiras: [],
     posicoesTicker: [], // Armazena recuperados da API
     Investidores: [], // Armazena recuperados da API
     Corretoras: [], // Armazena recuperados da API
-    CarteiraNome: "carregando...",
     formattedDate: '',
     tickers: [],
     items: [],
@@ -480,7 +496,6 @@ export default {
       taxas: '',
       TickerId: '',
       TipoOperacaoId: '',
-      CarteiraId: '',
       PosicaoAtivoId: '',
     },
     defaultItem: {
@@ -492,7 +507,6 @@ export default {
       // taxas: 1.6,
       // TickerId: 2,
       // TipoOperacaoId: 1,
-      // CarteiraId: 1
 
     },
     rules: {
@@ -522,13 +536,16 @@ export default {
         const matchesData = !this.filters.data || 
           this.$formatDate(item.data).includes(this.filters.data);
         
-        const matchesTicker = !this.filters.ticker || 
-          item.TickerId === this.filters.ticker;
+        const matchesTicker = !this.filters.ticker || this.filters.ticker.length === 0 ||
+          this.filters.ticker.includes(item.TickerId);
         
-        const matchesTipoOperacao = !this.filters.tipoOperacao || 
-          item.TipoOperacaoId === this.filters.tipoOperacao;
+        const matchesTipoOperacao = !this.filters.tipoOperacao || this.filters.tipoOperacao.length === 0 ||
+          this.filters.tipoOperacao.includes(item.TipoOperacaoId);
         
-        return matchesData && matchesTicker && matchesTipoOperacao;
+        const matchesCarteira = !this.filters.carteiras || this.filters.carteiras.length === 0 ||
+          this.filters.carteiras.includes(item.CarteiraId);
+
+        return matchesData && matchesTicker && matchesTipoOperacao && matchesCarteira;
       });
     },
 
@@ -554,7 +571,6 @@ export default {
   },
 
   created() {
-    this.carteiraid = this.$route.params.id;
     this.loadItems();
     this.loadTiposOperacao();
   },
@@ -564,8 +580,9 @@ export default {
     clearFilters() {
       this.filters = {
         data: '',
-        ticker: null,
-        tipoOperacao: null
+        ticker: [],
+        tipoOperacao: [],
+        carteiras: []
       };
     },
     
@@ -595,12 +612,8 @@ export default {
     },
 
     loadItems() {
-      api.get(`/operacaos?CarteiraId=${this.carteiraid}`).then((response) => {
+      api.get(`/operacaos`).then((response) => {
         this.items = response.data;
-      });
-      api.get(`/carteira?id=${this.carteiraid}`).then((response) => {
-        this.CarteiraNome = response.data[0]["nome"];
-        // console.log(response.data[0]["nome"]);
       });
       api.get(`/ticker`).then((response) => {
         this.tickers = response.data;
@@ -622,25 +635,6 @@ export default {
       this.$router.push({ name: 'Operacoes', params: { id: item.id } });
     },
     
-    // Função para direcionar página para próxima carteira
-    nextCarteira() {
-      if (this.carteiras.length === 0) return;
-
-      // Encontrar o índice da carteira atual
-      const currentIndex = this.carteiras.findIndex(c => c.id == this.carteiraid);
-      // Calcular o índice da próxima carteira (circular)
-      // Exemplo: se estiver na última carteira, volta para a primeira
-      const nextIndex = (currentIndex + 1) % this.carteiras.length;
-      // Obter o ID da próxima carteira
-      const nextCarteiraId = this.carteiras[nextIndex].id;
-
-      // Redirecionar para a próxima carteira
-      this.$router.push({ name: 'operacoes', params: { id: nextCarteiraId } });
-      // Atualizar o ID da carteira e recarregar os itens
-      this.carteiraid = nextCarteiraId;
-      this.loadItems();
-    },
-
     novaPosicao() {
       this.novaPosicaoData = '';
       this.dialogNovaPosicao = true;
@@ -716,7 +710,6 @@ export default {
         if (formResult.valid) {
 
           this.editedItem.data = this.$formatDateToISO(this.formattedDate);
-          this.editedItem.CarteiraId = this.carteiraid;
           
           if (this.editedIndex > -1) {
             api.put(`/operacao/${this.editedItem.id}`, this.editedItem).then(() => 

@@ -16,6 +16,8 @@
         <v-list-item prepend-icon="mdi-account-group" title="Investidores" value="investidores" to="/investidores"></v-list-item>
         <v-list-item prepend-icon="mdi-domain" title="Corretoras" value="corretoras" to="/corretoras"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Ativo" value="tiposativo" to="/tiposativo"></v-list-item>
+        <v-list-item prepend-icon="mdi-cog" title="Tipos de Classificação de Ativo" value="tiposativoclassificacao" to="/tiposativoclassificacao"></v-list-item>
+        <v-list-item prepend-icon="mdi-cog" title="Tipos de Agrupamento de Ativo" value="tiposativoagrupamento" to="/tiposativoagrupamento"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Operação" value="tiposoperacao" to="/tiposoperacao"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Tipos de Provento" value="tiposprovento" to="/tiposprovento"></v-list-item>
         <v-list-item prepend-icon="mdi-cog" title="Opções: Tipo de Operação" value="tiposopcaooperacoes" to="/tiposopcaooperacoes"></v-list-item>

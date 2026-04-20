@@ -32,19 +32,19 @@ const routes = [
     meta: { title: "Corretoras" }
   },
   {
-    path: "/carteiras/operacoes/:id",
+    path: "/carteiras/operacoes",
     name: "operacoes",
     component: () => import("../views/OperacoesView.vue"),
     meta: { title: "Operações" }
   },
   {
-    path: "/carteiras/proventos/:id",
+    path: "/carteiras/proventos",
     name: "proventos",
     component: () => import("../views/ProventosView.vue"),
     meta: { title: "Proventos" }
   },
   {
-    path: "/carteiras/dashboard/:id",
+    path: "/carteiras/dashboard",
     name: "dashboard",
     component: () => import("../views/DashboardView.vue"),
     meta: { title: "Dashboard" }
@@ -96,6 +96,18 @@ const routes = [
     name: "tiposativo",
     component: () => import("../views/TiposAtivoView.vue"),
     meta: { title: "Tipos de ativo" }
+  },
+  {
+    path: "/tiposativoclassificacao",
+    name: "tiposativoclassificacao",
+    component: () => import("../views/TiposAtivoClassificacaoView.vue"),
+    meta: { title: "Tipos de agrupamento de ativo" }
+  },
+  {
+    path: "/tiposativoagrupamento",
+    name: "tiposativoagrupamento",
+    component: () => import("../views/TiposAtivoAgrupamentoView.vue"),
+    meta: { title: "Tipos de agrupamento de ativo" }
   },
   {
     path: "/moedas",

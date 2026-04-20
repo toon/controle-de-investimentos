@@ -143,7 +143,7 @@
         </v-dialog>
       </v-toolbar>
 
-      <MenuCarteira :carteira-id="$route.params.id" />
+      <MenuCarteira />
 
       <!-- Filtros em linha única acima da tabela -->
       <v-card flat class="mb-4">
@@ -173,11 +173,31 @@
             
             <v-col cols="12" sm="2" md="2">
               <v-autocomplete
+                v-model="filters.carteiras"
+                :items="carteiras"
+                item-title="nome"
+                item-value="id"
+                label="Carteiras"
+                multiple
+                chips
+                closable-chips
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+              ></v-autocomplete>
+            </v-col>
+
+            <v-col cols="12" sm="2" md="2">
+              <v-autocomplete
                 v-model="filters.ticker"
                 :items="tickers"
                 item-title="nome"
                 item-value="id"
                 label="Ticker"
+                multiple
+                chips
+                closable-chips
                 clearable
                 density="compact"
                 variant="outlined"
@@ -192,6 +212,9 @@
                 item-title="nome"
                 item-value="id"
                 label="Tipo provento"
+                multiple
+                chips
+                closable-chips
                 clearable
                 density="compact"
                 variant="outlined"
@@ -219,6 +242,7 @@
     <template v-slot:item.data="{ item }">
       {{ $formatDate(item.data) }}
     </template>
+    <template v-slot:item.carteira="{ item }">{{ item.Carteira.nome }}</template>
     <template v-slot:item.valor_unitario="{ item }">
       {{ $formatCurrency(item.valor_unitario, item.Ticker.MoedaId) }}
     </template>
@@ -258,31 +282,35 @@
 </template>
 <script>
 import api from "../services/api";
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+// import { format, parseISO } from 'date-fns';
+// import { ptBR } from 'date-fns/locale';
 import MenuCarteira from '@/components/MenuCarteira.vue'
+
+const FILTERS_STORAGE_KEY = 'proventosFilters';
 
 export default {
   components: {
     MenuCarteira,
   },
   data: () => ({
-    mostrarCard: false,
+    mostrarCard: true,
     filters: {
       data: '',
-      ticker: null,
-      tipoProvento: null
+      ticker: [],
+      tipoProvento: [],
+      carteiras: []
     },
     tiposProvento: [], // Armazena os tipos de operação recuperados da API
     valid: false,
-    carteiraid: null,
-    tiposProvento: [], // Armazena os tipos de operação recuperados da API
+    // carteiraid: null,
     CarteiraNome: "carregando...",
     formattedDate: '',
     tickers: [],
+    carteiras: [],
     items: [],
     headers: [
       { title: "Data", value: "data", align: "center", key: "data" },
+      { title: "Carteira", key:"carteira", align: "center", value: "Carteira.nome" },
       { title: "Ticker", key:"ticker", align: "center", value: "Ticker.nome" },
       { title: "Tipo provento", key:"tipoprovento", align: "center", value: "TipoProvento.nome" },
       { title: "Valor unitário", key: "valor_unitario", align: "center", value: "valor_unitario" },
@@ -339,13 +367,16 @@ export default {
         const matchesData = !this.filters.data || 
           this.$formatDate(item.data).includes(this.filters.data);
         
-        const matchesTicker = !this.filters.ticker || 
-          item.TickerId === this.filters.ticker;
+        const matchesTicker = !this.filters.ticker || this.filters.ticker.length === 0 ||
+          this.filters.ticker.includes(item.TickerId);
         
-        const matchesTipoProvento = !this.filters.tipoProvento || 
-          item.TipoProventoId === this.filters.tipoProvento;
+        const matchesTipoProvento = !this.filters.tipoProvento || this.filters.tipoProvento.length === 0 ||
+          this.filters.tipoProvento.includes(item.TipoProventoId);
         
-        return matchesData && matchesTicker && matchesTipoProvento;
+        const matchesCarteira = !this.filters.carteiras || this.filters.carteiras.length === 0 ||
+          this.filters.carteiras.includes(item.CarteiraId);
+
+        return matchesData && matchesTicker && matchesTipoProvento && matchesCarteira;
       });
     },
 
@@ -359,10 +390,17 @@ export default {
     dialogDelete (val) {
       val || this.closeDelete()
     },
+    filters: {
+      handler(newFilters) {
+        localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(newFilters));
+      },
+      deep: true
+    },
   },
 
   created() {
-    this.carteiraid = this.$route.params.id;
+    this.loadPersistentFilters();
+    // this.carteiraid = this.$route.params.id;
     this.loadItems();
     this.loadtiposProvento();
   },
@@ -372,9 +410,22 @@ export default {
     clearFilters() {
       this.filters = {
         data: '',
-        ticker: null,
-        tipoOperacao: null
+        ticker: [],
+        tipoProvento: [],
+        carteiras: []
       };
+    },
+
+    loadPersistentFilters() {
+      const persistentFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
+      if (persistentFilters) {
+        try {
+          this.filters = JSON.parse(persistentFilters);
+        } catch (e) {
+          console.error('Erro ao carregar filtros salvos:', e);
+          localStorage.removeItem(FILTERS_STORAGE_KEY);
+        }
+      }
     },
 
     // Método para carregar os tipos de operação da API
@@ -397,16 +448,19 @@ export default {
     },
 
     loadItems() {
-      api.get(`/proventos?CarteiraId=${this.carteiraid}`).then((response) => {
+      api.get(`/proventos`).then((response) => {
         this.items = response.data;
       });
-      api.get(`/carteira?id=${this.carteiraid}`).then((response) => {
-        this.CarteiraNome = response.data[0]["nome"];
-        // console.log(response.data[0]["nome"]);
-      });
+      // api.get(`/carteira?id=${this.carteiraid}`).then((response) => {
+      //   this.CarteiraNome = response.data[0]["nome"];
+      //   // console.log(response.data[0]["nome"]);
+      // });
       api.get(`/ticker`).then((response) => {
         this.tickers = response.data;
         // console.log(response.data[0]["nome"]);
+      });
+      api.get(`/carteira`).then((response) => {
+        this.carteiras = response.data;
       });
     },
 
@@ -455,7 +509,7 @@ export default {
         if (formResult.valid) {
 
           this.editedItem.data = this.$formatDateToISO(this.formattedDate);
-          this.editedItem.CarteiraId = this.carteiraid;
+          // this.editedItem.CarteiraId = this.carteiraid;
           
           if (this.editedIndex > -1) {
             api.put(`/provento/${this.editedItem.id}`, this.editedItem).then(() => 

@@ -9,66 +9,13 @@
       <v-toolbar
         flat
       >
-        <v-toolbar-title><v-icon>mdi-wallet</v-icon> Carteiras</v-toolbar-title>
+        <v-toolbar-title><v-icon>mdi-cog</v-icon> Tipos de Classificação de Ativo</v-toolbar-title>
         <v-divider
           class="mx-4"
           inset
           vertical
         ></v-divider>
         <v-spacer></v-spacer>
-        <v-dialog
-          v-model="dialogTickers"
-          max-width="500px"
-        >
-          <v-card>
-            <v-card-title>
-              <span class="text-h5">Tickers</span>
-            </v-card-title>
-
-            <v-card-text>
-              <v-container>
-
-                <v-list select-strategy="classic">
-
-                  <v-list-item 
-                    v-for="ticker, index in tickers"
-                    :key="index"
-                  >
-                    <template v-slot:prepend>
-
-                      <v-list-item-action start>
-                        <v-checkbox-btn v-model="ticker.checked"></v-checkbox-btn>
-                      </v-list-item-action>
-                    </template>
-
-                    <v-list-item-title>{{ ticker.nome }}</v-list-item-title>
-
-                  </v-list-item>
-
-                </v-list>
-
-              </v-container>
-            </v-card-text>
-
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn
-                color="blue-darken-1"
-                variant="text"
-                @click="closeDialogTickers"
-              >
-                Cancelar
-              </v-btn>
-              <v-btn
-                color="blue-darken-1"
-                variant="text"
-                @click="saveTicker"
-              >
-                Salvar
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
         <v-dialog
           v-model="dialog"
           max-width="500px"
@@ -98,9 +45,10 @@
                   >
                     <v-text-field
                       v-model="editedItem.nome"
-                      label="Carteira"
+                      label="Tipo de Ativo"
                     ></v-text-field>
                   </v-col>
+
                   <v-col
                     cols="12"
                     md="4"
@@ -146,66 +94,18 @@
           </v-card>
         </v-dialog>
       </v-toolbar>
-
-      <MenuCarteira />
-
     </template>
-
-    <template v-slot:item.nome="{ item }">
-      {{ item.nome }}
-      <v-btn
-        flat
-        icon="mdi-link"
-        density="compact" 
-        size="small"
-        @click="gotoDashboard(item)"
-      ></v-btn>
-    </template>
-
-    
     <template v-slot:item.actions="{ item }">
       <v-icon
-        class="me-1"
-        
-        @click="gotoDashboard(item)"
-        title="Dashboard"
-      >
-        mdi-monitor-dashboard
-      </v-icon>
-      <v-icon
-        class="me-1"
-        
-        @click="gotoOperacoes(item)"
-        title="Operações"
-      >
-        mdi-finance
-      </v-icon>
-      <v-icon
-        class="me-1"
-        
-        @click="gotoProventos(item)"
-        title="Proventos"
-      >
-        mdi-currency-usd
-      </v-icon>
-      <v-icon
-        class="me-1"
-        
-        @click="editTickers(item)"
-        title="Tickers"
-      >
-        mdi-factory
-      </v-icon>
-      <v-icon
-        class="me-1"
-        
+        class="me-2"
+        size="small"
         @click="editItem(item)"
         title="Editar"
       >
         mdi-pencil
       </v-icon>
       <v-icon
-        
+        size="small"
         @click="deleteItem(item)"
         title="Excluir"
       >
@@ -228,30 +128,30 @@
 </template>
 <script>
 import api from "../services/api";
-import MenuCarteira from '@/components/MenuCarteira.vue'
 
 export default {
-  components: {
-    MenuCarteira,
-  },
   data: () => ({
-    tickers: [],
     items: [],
     headers: [
       { title: "Cód", value: "id", key: "id" },
-      { title: "Carteira", key:"nome", value: "nome" },
+      { title: "Tipo de Ativo", key:"nome", value: "nome" },
       { title: "Status", key: "ativo", align: "center", value: "ativo" },
       { title: "Ações", value: "actions", align: "end", sortable: false },
     ],
     dialog: false,
     dialogDelete: false,
-    dialogTickers: false,
     editedIndex: -1,
     editedItem: {
-      nome: ''
+      nome: '',
+      MoedaId: '',
     },
     defaultItem: {
-      nome: ''
+      nome: '',
+      MoedaId: 1,
+    },
+    rules: {
+      required: value => !!value || 'Campo obrigatório',
+      data: value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
     },
   }),
 
@@ -268,34 +168,30 @@ export default {
     dialogDelete (val) {
       val || this.closeDelete()
     },
-    dialogTickers (val) {
-      val || this.closeDialogTickers()
-    },
   },
 
   created() {
     this.loadItems();
+    this.loadmoedas();
   },
 
   methods: {
 
-    loadItems() {
-      api.get("/carteira").then((response) => {
-        this.items = response.data;
-        console.log(this.items);
+    // Método para carregar os tipos de operação da API
+    loadmoedas() {
+      api.get("/moeda").then((response) => {
+        this.moedas = response.data;
+        console.log(this.moedas);
+      }).catch(error => {
+        console.error("Erro ao carregar moedas:", error);
       });
     },
 
-    gotoDashboard (item) {
-      this.$router.push({ name: 'dashboard', params: { id: item.id } });
-    },
-    
-    gotoOperacoes (item) {
-      this.$router.push({ name: 'operacoes', params: { id: item.id } });
-    },
-    
-    gotoProventos (item) {
-      this.$router.push({ name: 'proventos', params: { id: item.id } });
+    loadItems() {
+      api.get("/tipoativoclassificacaos").then((response) => {
+        this.items = response.data;
+        console.log(this.items);
+      });
     },
     
     editItem (item) {
@@ -311,7 +207,7 @@ export default {
     },
 
     deleteItemConfirm () {
-      api.delete(`/carteira/${this.editedItem.id}`).then(() => 
+      api.delete(`/tipoativoclassificacao/${this.editedItem.id}`).then(() => 
         this.loadItems(),
         this.closeDelete()
       );
@@ -333,63 +229,13 @@ export default {
       })
     },
 
-    editTickers(item) {
-      // Definir qual item está sendo editado
-      this.editedIndex = this.items.indexOf(item)
-      this.editedItem = Object.assign({}, item)
-      
-      // Recuperar da API os Tickers desta carteira
-      api.get(`/getmanytomany/Carteira/${item.id}/Ticker/`).then((response) => {
-        
-        this.tickers = response.data.allRelatedItems;
-        
-        const markedPairs = response.data.relatedItemIds;
-
-        this.tickers.forEach(ticker => {
-          ticker.checked = markedPairs.includes(ticker.id);
-        });
-
-      });
-
-      // Mostrar a tela de diálogo
-      this.dialogTickers = true
-    },
-
-    closeDialogTickers () {
-      this.dialogTickers = false
-    },
-
-    saveTicker () {
-      
-      // Filtrar apenas os pares de moeda que estão marcados (checked)
-      const markedPairs = this.tickers.filter(parmoeda => parmoeda.checked);
-
-      // Criar o JSON para enviar para a API apenas com os IDs dos pares marcados
-      const payload = {
-        relatedIds: markedPairs.map(parmoeda => parmoeda.id) // Supondo que 'id' é o identificador do par de moeda
-      };
-
-      // Fazer a requisição para a API usando axios
-      api.put(`/putmanytomany/Carteira/${this.editedItem.id}/Ticker`, payload).then(() => {
-        // Carregar os itens novamente ou fazer outra ação após salvar
-        this.loadItems();
-      }).catch(error => {
-        // Tratamento de erro
-        console.error("Erro ao salvar os dados:", error);
-      });
-
-      // Fechar o diálogo ou card
-      this.closeDialogTickers();
-    },
-
-    
     save () {
       if (this.editedIndex > -1) {
-        api.put(`/carteira/${this.editedItem.id}`, this.editedItem).then(() => 
+        api.put(`/tipoativoclassificacao/${this.editedItem.id}`, this.editedItem).then(() => 
           this.loadItems()
         )
       } else {
-        api.post("/carteira", this.editedItem).then(() => 
+        api.post("/tipoativoclassificacao", this.editedItem).then(() => 
           this.loadItems()
         )
       }

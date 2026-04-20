@@ -39,6 +39,31 @@
             title="Calcular Notional"
             class="ml-2"
           ></v-btn>
+
+          <v-btn
+            color="green"
+            icon="mdi-calculator-variant"
+            density="comfortable" 
+            @click="calculateTotalResultadoDialog"
+            title="Somar Resultado Exibido"
+            class="ml-2"
+          ></v-btn>
+
+          <v-dialog v-model="dialogTotalResultado" max-width="500px">
+            <v-card>
+              <v-card-title class="text-h5">Soma dos Resultados</v-card-title>
+              <v-card-text class="text-h4 text-center py-4">
+                <span :class="totalResultadoSum >= 0 ? 'text-green' : 'text-red'">
+                  {{ $formatCurrency(this.totalResultadoSum, 1) }}
+                </span>
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue-darken-1" variant="text" @click="dialogTotalResultado = false">Fechar</v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+
           <v-menu
             offset-y
             :close-on-content-click="false"
@@ -182,34 +207,47 @@
               <v-card-text>
                 <v-container v-if="simulacaoItem && simulacaoItem.nome">
                   <v-row>
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" sm="3">
                       <strong>Strike:</strong> {{ $formatCurrency(simulacaoItem.strike, 1) }}
-                    </v-col>
-                    <v-col cols="12" sm="4">
-                      <strong>Cotação:</strong> {{ $formatCurrency(simulacaoItem.cotacao, 1) }}
                     </v-col>
                     <v-col cols="12" sm="4">
                       <strong>PM Ativo:</strong> {{ $formatCurrency(simulacaoItem.preco_aquisicao, 1) }}
                     </v-col>
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" sm="5">
                       <strong>Prêmio:</strong> {{ $formatCurrency(simulacaoItem.premio, 1) }}
                     </v-col>
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" sm="3">
                       <strong>Quantidade:</strong> {{ simulacaoItem.quantidade ? parseInt(simulacaoItem.quantidade) : '' }}
                     </v-col>
                     <v-col cols="12" sm="4">
                       <strong>Total Prêmio:</strong> {{ $formatCurrency(simulacaoItem.premio * simulacaoItem.quantidade, 1) }}
                     </v-col>
-                    <v-col cols="12" sm="6">
+                    <v-col cols="12" sm="5">
                       <strong>Valor Investido:</strong> {{ $formatCurrency(simulacaoItem.investido, 1) }}
+                    </v-col>
+                    <v-col cols="12" sm="12" v-if="simulacaoItem.investido > 0">
+                      <strong>Rend. Exercício: </strong>
+                      <span :class="rendimentoExercicio >= 0 ? 'text-green' : 'text-red'">
+                        {{ $formatCurrency(rendimentoExercicio, 1) }} ({{ rendimentoExercicioPercentual.toFixed(2) }}%)
+                      </span>
                     </v-col>
                   </v-row>
                   <v-row>
-                    <v-col cols="12">
+                    <v-col cols="12" sm="6">
+                      <v-text-field
+                        v-model.number="simulacaoItem.cotacao"
+                        label="Cotação do Ativo"
+                        type="number"
+                        step="0.01"
+                        @keyup.enter="executarSimulacao"
+                      ></v-text-field>
+                    </v-col>
+                    <v-col cols="12" sm="6">
                       <v-text-field
                         v-model="simulacaoPreco"
                         label="Preço de Recompra (por opção)"
                         type="number"
+                        step="0.01"
                         autofocus
                         @keyup.enter="executarSimulacao"
                       ></v-text-field>
@@ -218,10 +256,20 @@
                   <v-row v-if="simulacaoResultado !== null">
                     <v-col cols="12" md="6">
                       <h3 :class="simulacaoResultado >= 0 ? 'text-green' : 'text-red'">
-                        Resultado: {{ $formatCurrency(simulacaoResultado, 1) }}
+                        Resultado opção: {{ $formatCurrency(simulacaoResultado, 1) }}
                       </h3>
                       <h4 v-if="simulacaoCustoRecompra !== null" class="text-red">
                         Valor a devolver: {{ $formatCurrency(simulacaoCustoRecompra, 1) }}
+                      </h4>
+                      <h4 v-if="simulacaoItem.cotacao > 0 && simulacaoItem.preco_aquisicao > 0">
+                        <span :class="rendimentoAtivo >= 0 ? 'text-green' : 'text-red'">
+                          Rendimento do Ativo: {{ $formatCurrency(rendimentoAtivo, 1) }}
+                        </span>
+                      </h4>
+                      <h4 v-if="simulacaoItem.cotacao > 0 && simulacaoItem.preco_aquisicao > 0">
+                        <span :class="rendimentoAtivo >= 0 ? 'text-green' : 'text-red'">
+                          Resultado operação: {{ $formatCurrency((rendimentoAtivo+simulacaoResultado), 1) }}
+                        </span>
                       </h4>
                     </v-col>
                     <v-col cols="12" md="6">
@@ -230,6 +278,12 @@
                       </h4>
                       <h4 v-if="simulacaoItem.premio * simulacaoItem.quantidade > 0" :class="simulacaoResultado >= 0 ? 'text-green' : 'text-red'">
                         % prêmio: {{ (simulacaoResultado / (simulacaoItem.premio * simulacaoItem.quantidade) * 100).toFixed(2) }}%
+                      </h4>
+                      <h4 v-if="rendimentoAtivo > 0" :class="simulacaoResultado >= 0 ? 'text-green' : 'text-red'">
+                        % valorização: {{ (rendimentoAtivo / simulacaoItem.investido * 100).toFixed(2) }}%
+                      </h4>
+                      <h4 v-if="rendimentoAtivo > 0" :class="simulacaoResultado >= 0 ? 'text-green' : 'text-red'">
+                        % operação: {{ ((rendimentoAtivo+simulacaoResultado) / simulacaoItem.investido * 100).toFixed(2) }}%
                       </h4>
                     </v-col>
                   </v-row>
@@ -255,16 +309,20 @@
             ></v-btn>
 
           </v-card-title>
+
           <v-card-text class="pa-2" v-if="mostrarCard">
             <v-row dense align="center">
               
-              <v-col cols="12" sm="2" md="2">
+              <v-col cols="12" sm="4" md="3">
                 <v-autocomplete
                   v-model="filters.ticker"
                   :items="tickers"
                   item-title="nome"
                   item-value="id"
-                  label="Ticker"
+                  label="Tickers"
+                  multiple
+                  chips
+                  closable-chips
                   clearable
                   density="compact"
                   variant="outlined"
@@ -272,13 +330,33 @@
                 ></v-autocomplete>
               </v-col>
               
-              <v-col cols="12" sm="3" md="3">
+              <v-col cols="12" sm="4" md="3">
                 <v-autocomplete
                   v-model="filters.status"
                   :items="opcaostatus"
                   item-title="nome"
                   item-value="id"
                   label="Status"
+                  multiple
+                  chips
+                  closable-chips
+                  clearable
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                ></v-autocomplete>
+              </v-col>
+
+              <v-col cols="12" sm="4" md="3">
+                <v-autocomplete
+                  v-model="filters.operacao"
+                  :items="tipoOpcaoOperacoes"
+                  item-title="nome"
+                  item-value="id"
+                  label="Tipos de Operação"
+                  multiple
+                  chips
+                  closable-chips
                   clearable
                   density="compact"
                   variant="outlined"
@@ -300,6 +378,7 @@
               </v-col>
             </v-row>
           </v-card-text>
+
         </v-card>      
 
 
@@ -314,12 +393,25 @@
             }"
           ><small>{{ item.TipoOpcaoStatus.nome}}</small></v-chip>
 
-          <small>{{ item.TipoOpcaoStatus.nome == 'Em andamento' ? 
+          <br /><small>{{ item.TipoOpcaoStatus.nome == 'Em andamento' ? 
             $diasEntreDatas(item.data_abertura, new Date()) + ' dias de oper.'
             : '' }}
           </small>
       </template>
 
+      <template v-slot:item.nome="{ item }">
+        <strong>{{ item.nome }}</strong>
+        <sup v-if="item.rolagem_de_id" class="text-red">
+          #{{ item.rolagem_de_id }}
+        </sup>
+        <br />
+        <v-chip 
+          density="compact"
+          :class="item.TipoOpcaoOperacao.id == $TIPO_OPCAO_OPERACAO.VP ? 'v-chip-vp' : item.TipoOpcaoOperacao.id == $TIPO_OPCAO_OPERACAO.VC ? 'v-chip-vc' : 'v-chip-cp'"
+        >
+          <small><strong>{{ item.TipoOpcaoOperacao.nome }}</strong></small>
+        </v-chip>
+      </template>      
       <template v-slot:item.data_abertura="{ item }">
         {{ $formatDate(item.data_abertura) }}
         <div class="text-caption">{{ item.data_abertura != null ? 
@@ -348,14 +440,6 @@
         </div>
       </template>
 
-      <template v-slot:item.nome="{ item }">
-        <strong>{{ item.nome }}</strong><br />
-        <v-chip density="compact"
-          :class="item.TipoOpcaoOperacao.id == $TIPO_OPCAO_OPERACAO.VP ? 'v-chip-vp' : item.TipoOpcaoOperacao.id == $TIPO_OPCAO_OPERACAO.VC ? 'v-chip-vc' : item.TipoOpcaoOperacao.id == $TIPO_OPCAO_OPERACAO.CP ? 'v-chip-cp' : 'v-chip-cp'"
-          ><small><strong>{{ item.TipoOpcaoOperacao.nome }}</strong></small>
-        </v-chip>
-      </template>
-      
       <template v-slot:item.strike="{ item }">
         <strong
           :class="{ 
@@ -503,7 +587,7 @@
       </template>
 
       <template v-slot:item.data_recompra="{ item }">
-        {{ $formatDate(item.data_recompra) }}
+        {{ $formatDate(item.data_recompra) }} <br />
 
         <small>{{ item.data_recompra != null ? 
           $diasEntreDatas(item.data_abertura, item.data_recompra) + ' dias de oper.'
@@ -574,6 +658,8 @@ const SORT_BY_STORAGE_KEY = 'opcoesSortBy';
 export default {
   data: () => ({
     notional: 0,
+    totalResultadoSum: 0,
+    dialogTotalResultado: false,
     mostrarCard: false,
     tickers: [],
     symbols: [],
@@ -583,40 +669,41 @@ export default {
     corretoras: [],
     tipoOpcaoOperacoes: [],
     filters: {
-      status: null,
-      ticker: null
-    },
+      status: [],  
+      ticker: [],  
+      operacao: [],
+    },    
     selectedRow: null,
     sortBy: [{ key: 'id', order: 'desc' }],
     items: [],
     moedas: [], // Armazena os tipos de operação recuperados da API
     tiposAtivo: [], // Armazena os tipos de operação recuperados da API
     headers: [
-      { title: "Cód", value: "id", key: "id", visible: true },
-      { title: "Status", key:"status", value: "TipoOpcaoStatus.nome", align: "center", visible: true },
-      { title: "Opção", key:"nome", value: "nome", align: "center", visible: true },
-      { title: "Ativo", key:"ativo", value: "Ticker.nome", align: "center", visible: true },
-      { title: "Abertura", key:"data_abertura", value: "data_abertura", visible: true },
-      { title: "Vencimento", key:"data_vencimento", value: "data_vencimento", visible: true },
-      { title: "PM de aquisição", key:"preco_aquisicao", value: "preco_aquisicao", visible: true },
-      { title: "Investido", key:"investido", value: "investido", visible: true },
-      { title: "Qtde", key:"quantidade", value: "quantidade", visible: true },
-      { title: "Strike (cotação)", key:"strike", value: "strike", align: "center", visible: true  },
+      { title: "#", value: "id", key: "id", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Status", key:"status", value: "TipoOpcaoStatus.nome", align: "center", visible: true, cellProps: { class: 'px-0' }, },
+      { title: "Opção", key:"nome", value: "nome", align: "center", visible: true, cellProps: { class: 'px-0' }, },
+      { title: "Ativo", key:"ativo", value: "Ticker.nome", align: "center", visible: true, cellProps: { class: 'px-1' }, },
+      { title: "Abertura", key:"data_abertura", value: "data_abertura", visible: true, cellProps: { class: 'px-1' }, align: "center" },
+      { title: "Vencimento", key:"data_vencimento", value: "data_vencimento", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "PM de aquisição", key:"preco_aquisicao", value: "preco_aquisicao", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Investido", key:"investido", value: "investido", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Qtde", key:"quantidade", value: "quantidade", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Strike (cotação)", key:"strike", value: "strike", visible: true, cellProps: { class: 'px-0' }, align: "center" },
       // { title: "Strike Inicial", key: "strike_inicial", value: "strike_inicial", align: "center", visible: true },
-      { title: "Prêmio", key:"premio", value: "premio", visible: true },
-      { title: "Prêmio total", key:"premio_total", value: "premio_total", sortable: false, visible: true },
-      { title: "Retorno exercício", key:"retorno_exercicio", value: "retorno_exercicio", sortable: false, visible: true },
-      { title: "Retorno exercício total", key:"retorno_exercicio_total", value: "retorno_exercicio_total", sortable: false, visible: true },
-      { title: "Retorno c/ prêmio", key:"retorno_exercicio_premio", value: "retorno_exercicio_premio", sortable: false, visible: true },
-      { title: "% op", key:"porcent_operacao", value: "porcent_operacao", sortable: false, visible: true },
-      { title: "% exerc.", key:"porcent_exercicio", value: "porcent_exercicio", sortable: false, visible: true },
-      { title: "% exerc. total", key:"porcent_exercicio_total", value: "porcent_exercicio_total", sortable: false, visible: true },
-      { title: "Taxas", key:"taxas", value: "taxas", sortable: false, visible: true },
-      { title: "Resultado", key:"resultado", value: "resultado", visible: true },
-      { title: "Data recompra", key:"data_recompra", value: "data_recompra", visible: true },
-      { title: "Preço recompra", key:"preco_recompra", value: "preco_recompra", visible: true },
-      { title: "Invest.", key:"investidor", value: "Investidor.nome", align: "center", visible: true },
-      { title: "Ações", value: "actions", align: "end", sortable: false, minWidth: '80px', visible: true },
+      { title: "Prêmio", key:"premio", value: "premio", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Prêmio total", key:"premio_total", value: "premio_total", sortable: false, visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Retorno exercício", key:"retorno_exercicio", value: "retorno_exercicio", sortable: false, visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Retorno exercício total", key:"retorno_exercicio_total", value: "retorno_exercicio_total", sortable: false, visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Retorno c/ prêmio", key:"retorno_exercicio_premio", value: "retorno_exercicio_premio", sortable: false, visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "% op", key:"porcent_operacao", value: "porcent_operacao", sortable: false, visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "% exerc.", key:"porcent_exercicio", value: "porcent_exercicio", sortable: false, visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "% exerc. total", key:"porcent_exercicio_total", value: "porcent_exercicio_total", sortable: false, visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Taxas", key:"taxas", value: "taxas", sortable: false, visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Resultado", key:"resultado", value: "resultado", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Data recompra", key:"data_recompra", value: "data_recompra", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Preço recompra", key:"preco_recompra", value: "preco_recompra", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Invest.", key:"investidor", value: "Investidor.nome", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Ações", value: "actions", align: "end", sortable: false, minWidth: '80px', visible: true, cellProps: { class: 'px-0' }, align: "center" },
     ],
     dialog: false,
     dialogDelete: false,
@@ -674,29 +761,66 @@ export default {
   }),
 
   computed: {
+
+    rendimentoExercicio() {
+      if (!this.simulacaoItem || !this.simulacaoItem.TipoOpcaoOperacao) return 0;
+      const { strike, quantidade, investido, TipoOpcaoOperacao } = this.simulacaoItem;
+
+      if (investido === null || investido === undefined) return 0;
+
+      if (TipoOpcaoOperacao.nome === 'Venda de CALL') {
+        return (strike * quantidade) - investido;
+      }
+      
+      return investido - (strike * quantidade);
+    },
+
+    rendimentoExercicioPercentual() {
+      if (!this.simulacaoItem || !this.simulacaoItem.investido || this.simulacaoItem.investido === 0) return 0;
+      return (this.rendimentoExercicio / this.simulacaoItem.investido) * 100;
+    },
+
+    rendimentoAtivo() {
+      if (!this.simulacaoItem || this.simulacaoItem.cotacao === undefined || this.simulacaoItem.preco_aquisicao === undefined || this.simulacaoItem.quantidade === undefined) {
+        return 0;
+      }
+      const { cotacao, preco_aquisicao, quantidade } = this.simulacaoItem;
+      return (cotacao - preco_aquisicao) * quantidade;
+    },
+
     formTitle () {
       return this.editedIndex === -1 ? 'Novo item' : 'Editar item'
     },
+
     dateRules() {
       return [
         value => !!value || 'Campo obrigatório',
         value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
       ];
     },
+
     filteredItems() {
       return this.items.filter(item => {
-        const matchesTicker = !this.filters.ticker || 
-          item.TickerId === this.filters.ticker;
+        // Se filters.ticker for null, ele usa um array vazio [] para não dar erro no .length
+        const currentTickers = this.filters.ticker || [];
+        const matchesTicker = currentTickers.length === 0 || 
+          currentTickers.includes(item.TickerId);
         
-        const matchesOpcaoStatus = !this.filters.status || 
-          item.TipoOpcaoStatusId === this.filters.status;
+        const currentStatus = this.filters.status || [];
+        const matchesOpcaoStatus = currentStatus.length === 0 || 
+          currentStatus.includes(item.TipoOpcaoStatusId);
+
+        const currentOperacao = this.filters.operacao || [];
+        const matchesOperacao = currentOperacao.length === 0 || 
+          currentOperacao.includes(item.TipoOpcaoOperacaoId);
         
-        return matchesTicker && matchesOpcaoStatus;
+        return matchesTicker && matchesOpcaoStatus && matchesOperacao;
       });
     },
     visibleHeaders() {
       return this.headers.filter(h => h.visible)
     },
+    
   },
 
   watch: {
@@ -747,6 +871,9 @@ export default {
       },
       deep: true
     },
+    simulacaoPreco() {
+      this.executarSimulacao();
+    },
   },
 
   created() {
@@ -763,6 +890,22 @@ export default {
   },
 
   methods: {
+
+    calculateTotalResultadoDialog() {
+      this.calculateTotalResultado();
+      this.dialogTotalResultado = true;
+    },
+
+    calculateTotalResultado() {
+      // Somamos o campo 'resultado' de todos os itens que passam pelo filtro da tabela
+      const total = this.filteredItems.reduce((acc, item) => {
+        // Garante que o valor seja numérico antes de somar
+        const resultado = parseFloat(item.resultado) || 0;
+        return acc + resultado;
+      }, 0);
+
+      this.totalResultadoSum = total;
+    },
 
     saveColumnVisibility() {
       const visibilityConfig = this.headers.reduce((acc, header) => {
@@ -842,6 +985,9 @@ export default {
     
     atualizaCotacoes() {      
       this.items.forEach(item => {
+        // Atualiza cotações somente das operações em andamento
+        if(item.TipoOpcaoStatus.id !== 1) return;
+
         const cotacao = this.multipleQuotes.find(c => c.ticker === item.Ticker.nome);
         if (cotacao) {
           item.cotacao = cotacao.price;
@@ -994,9 +1140,9 @@ export default {
     loadItems() {
       api.get("/opcaos").then((response) => {
         this.items = response.data;
-        this.symbols = this.items.map(item => item.Ticker.nome);
+        this.symbols = [...new Set(this.items.map(item => item.Ticker.nome))];
         this.fetchMultipleStockQuotes();
-        console.log(this.items);
+        console.log(this.symbols);
       });
     },
     
