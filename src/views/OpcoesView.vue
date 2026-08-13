@@ -298,6 +298,8 @@
           </v-dialog>
         </v-toolbar>
 
+        <MenuOpcoes />
+
         <!-- Filtros em linha única acima da tabela -->
         <v-card flat class="mb-4">
           <v-card-title class="text-h6">Filtros
@@ -579,10 +581,65 @@
       </template>
 
       <template v-slot:item.resultado="{ item }">
-        {{ $formatCurrency(item.resultado, 1) }}
-        <div class="text-caption">
-          <span v-if="item.resultado > 0" class="text-green"><v-chip density="compact">{{ (item.resultado/item.investido*100).toFixed(2) }}%</v-chip></span>
-          <span v-if="item.resultado < 0" class="text-red"><v-chip density="compact">{{ (item.resultado/item.investido*100).toFixed(2) }}%</v-chip></span>
+  
+        <template v-if="item.TipoOpcaoStatus.id !== 1">
+          <div>{{ $formatCurrency(item.resultado, 1) }}</div>
+          <div class="text-caption" v-if="item.investido > 0">
+            <span v-if="item.resultado > 0" class="text-green">
+              <v-chip density="compact">{{ (item.resultado / item.investido * 100).toFixed(2) }}%</v-chip>
+            </span>
+            <span v-if="item.resultado < 0" class="text-red">
+              <v-chip density="compact">{{ (item.resultado / item.investido * 100).toFixed(2) }}%</v-chip>
+            </span>
+          </div>
+        </template>
+
+        <template v-else>
+          <div v-if="item.resultado_intrinseco !== undefined && item.resultado_intrinseco !== null">
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props" style="border-bottom: 1px dotted #999; cursor: help;">
+                  {{ $formatCurrency(item.resultado_intrinseco, 1) }}
+                </span>
+              </template>
+              <div>Resultado pelo Valor Intrínseco atual</div>
+            </v-tooltip>
+            
+            <div class="text-caption" v-if="item.investido > 0">
+              <span v-if="item.resultado_intrinseco >= 0" class="text-green">
+                <v-chip density="compact">{{ (item.resultado_intrinseco / item.investido * 100).toFixed(2) }}%</v-chip>
+              </span>
+              <span v-if="item.resultado_intrinseco < 0" class="text-red">
+                <v-chip density="compact">{{ (item.resultado_intrinseco / item.investido * 100).toFixed(2) }}%</v-chip>
+              </span>
+            </div>
+          </div>
+          <div v-else class="text-grey text-caption">Aguardando cotação...</div>
+        </template>
+
+        <div v-if="item.rolagem_de_id" class="mt-1 pt-1" style="border-top: 1px dashed #ccc;">
+          <v-tooltip location="top">
+            <template v-slot:activator="{ props }">
+              <div v-bind="props">
+                <span 
+                  :class="item.resultado_acumulado >= 0 ? 'text-green' : 'text-red'"
+                  style="font-size: 0.85em; font-weight: bold;"
+                >
+                  <v-icon size="x-small">mdi-sigma</v-icon>
+                  {{ $formatCurrency(item.resultado_acumulado, 1) }}
+                </span>
+                
+                <div class="text-caption" v-if="item.investido > 0">
+                  <span :class="item.resultado_acumulado >= 0 ? 'text-green' : 'text-red'">
+                    <v-chip density="compact" size="small">
+                      {{ (item.resultado_acumulado / item.investido * 100).toFixed(2) }}%
+                    </v-chip>
+                  </span>
+                </div>
+              </div>
+            </template>
+            <div>Acumulado com as rolagens anteriores</div>
+          </v-tooltip>
         </div>
       </template>
 
@@ -617,6 +674,10 @@
         {{ (item.CorretoraId != null ? '(' + item.Corretora.nome + ')' : null) }}
       </template>
 
+      <template v-slot:item.TipoOperacaoTaxaId="{ item }">
+        {{ (item.TipoOperacaoTaxaId != null ? '#' + item.TipoOperacaoTaxaId : null) }}
+      </template>
+
       <template v-slot:item.actions="{ item }">
         <v-icon
           class="me-2"
@@ -648,6 +709,7 @@
 <script>
 import stockService from "@/services/stockService";
 import api from "../services/api";
+import MenuOpcoes from '@/components/MenuOpcoes.vue'
 
 // Defina uma chave única para o LocalStorage
 const FILTERS_STORAGE_KEY = 'opcoesFilters';
@@ -656,6 +718,9 @@ const COLUMN_VISIBILITY_KEY = 'opcoesColumnVisibility';
 const SORT_BY_STORAGE_KEY = 'opcoesSortBy';
 
 export default {
+  components: {
+    MenuOpcoes,
+  },
   data: () => ({
     notional: 0,
     totalResultadoSum: 0,
@@ -680,6 +745,7 @@ export default {
     tiposAtivo: [], // Armazena os tipos de operação recuperados da API
     headers: [
       { title: "#", value: "id", key: "id", visible: true, cellProps: { class: 'px-0' }, align: "center" },
+      { title: "Tx", value: "TipoOperacaoTaxaId", key: "TipoOperacaoTaxaId", visible: true, cellProps: { class: 'px-0' }, align: "center" },
       { title: "Status", key:"status", value: "TipoOpcaoStatus.nome", align: "center", visible: true, cellProps: { class: 'px-0' }, },
       { title: "Opção", key:"nome", value: "nome", align: "center", visible: true, cellProps: { class: 'px-0' }, },
       { title: "Ativo", key:"ativo", value: "Ticker.nome", align: "center", visible: true, cellProps: { class: 'px-1' }, },
@@ -891,21 +957,85 @@ export default {
 
   methods: {
 
+    calcularResultadoIntrinseco(item) {
+      if (!item.cotacao || !item.strike || !item.quantidade || !item.TipoOpcaoOperacao) return null;
+
+      const isCall = item.TipoOpcaoOperacao.nome.includes('CALL');
+      const isVenda = item.TipoOpcaoOperacao.nome.includes('Venda');
+
+      let valorIntrinsecoUnitario = 0;
+
+      // Calcula o valor intrínseco da opção
+      if (isCall) {
+        valorIntrinsecoUnitario = Math.max(0, item.cotacao - item.strike);
+      } else {
+        // É PUT
+        valorIntrinsecoUnitario = Math.max(0, item.strike - item.cotacao);
+      }
+
+      const valorIntrinsecoTotal = valorIntrinsecoUnitario * item.quantidade;
+      const totalPremio = item.premio * item.quantidade;
+
+      if (isVenda) {
+        // Venda: Recebeu prêmio inicial. O custo teórico de encerramento é o valor intrínseco.
+        return totalPremio - valorIntrinsecoTotal;
+      } else {
+        // Compra: Pagou prêmio inicial. O valor teórico de resgate é o valor intrínseco.
+        return valorIntrinsecoTotal - totalPremio;
+      }
+    },
+
+    calcularResultadoAcumulado(item) {
+      if (item.resultado_acumulado !== undefined) {
+        return item.resultado_acumulado;
+      }
+
+      // Se estiver em andamento, usa o intrínseco dinâmico. Se estiver fechada, usa o do banco.
+      const valorBase = (item.TipoOpcaoStatus.id === 1 && item.resultado_intrinseco !== undefined) 
+                        ? item.resultado_intrinseco 
+                        : (parseFloat(item.resultado) || 0);
+
+      if (!item.rolagem_de_id) {
+        item.resultado_acumulado = valorBase;
+        return valorBase;
+      }
+
+      const operacaoOrigem = this.items.find(i => i.id === item.rolagem_de_id);
+
+      if (operacaoOrigem) {
+        item.resultado_acumulado = valorBase + this.calcularResultadoAcumulado(operacaoOrigem);
+      } else {
+        item.resultado_acumulado = valorBase;
+      }
+
+      return item.resultado_acumulado;
+    },
+
     calculateTotalResultadoDialog() {
       this.calculateTotalResultado();
       this.dialogTotalResultado = true;
     },
 
     calculateTotalResultado() {
-      // Somamos o campo 'resultado' de todos os itens que passam pelo filtro da tabela
       const total = this.filteredItems.reduce((acc, item) => {
-        // Garante que o valor seja numérico antes de somar
-        const resultado = parseFloat(item.resultado) || 0;
-        return acc + resultado;
+        const valorReal = (item.TipoOpcaoStatus.id === 1 && item.resultado_intrinseco !== undefined) 
+                          ? item.resultado_intrinseco 
+                          : (parseFloat(item.resultado) || 0);
+        return acc + valorReal;
       }, 0);
 
       this.totalResultadoSum = total;
     },
+    // calculateTotalResultado() {
+    //   // Somamos o campo 'resultado' de todos os itens que passam pelo filtro da tabela
+    //   const total = this.filteredItems.reduce((acc, item) => {
+    //     // Garante que o valor seja numérico antes de somar
+    //     const resultado = parseFloat(item.resultado) || 0;
+    //     return acc + resultado;
+    //   }, 0);
+
+    //   this.totalResultadoSum = total;
+    // },
 
     saveColumnVisibility() {
       const visibilityConfig = this.headers.reduce((acc, header) => {
@@ -982,7 +1112,7 @@ export default {
         }
       }
     },
-    
+
     atualizaCotacoes() {      
       this.items.forEach(item => {
         // Atualiza cotações somente das operações em andamento
@@ -997,13 +1127,38 @@ export default {
           item.close = cotacao.close;
 
           this.destacarStrike(item.id, item.strike, item.cotacao, item.TipoOpcaoOperacao.id, item.TipoOpcaoStatus.id);
-
+          
+          // Calcula e injeta o resultado baseado no valor intrínseco
+          item.resultado_intrinseco = this.calcularResultadoIntrinseco(item);
         }
-
-        // item.rendimento = this.calcularRendimento(item);
-        // item.hoje = this.calcularHoje(item);
       });
-    },
+
+      // Limpa o cache e recalcula o acumulado para que ele utilize os valores intrínsecos atualizados
+      this.items.forEach(item => item.resultado_acumulado = undefined);
+      this.items.forEach(item => this.calcularResultadoAcumulado(item));
+    },    
+    
+    // atualizaCotacoes() {      
+    //   this.items.forEach(item => {
+    //     // Atualiza cotações somente das operações em andamento
+    //     if(item.TipoOpcaoStatus.id !== 1) return;
+
+    //     const cotacao = this.multipleQuotes.find(c => c.ticker === item.Ticker.nome);
+    //     if (cotacao) {
+    //       item.cotacao = cotacao.price;
+    //       item.open = cotacao.open;
+    //       item.high = cotacao.high;
+    //       item.low = cotacao.low;
+    //       item.close = cotacao.close;
+
+    //       this.destacarStrike(item.id, item.strike, item.cotacao, item.TipoOpcaoOperacao.id, item.TipoOpcaoStatus.id);
+
+    //     }
+
+    //     // item.rendimento = this.calcularRendimento(item);
+    //     // item.hoje = this.calcularHoje(item);
+    //   });
+    // },
 
     destacarStrike(itemId, strike, cotacao, tipoOperacaoId, tipoStatusId) {
         // Encontra o item pelo ID
@@ -1140,9 +1295,15 @@ export default {
     loadItems() {
       api.get("/opcaos").then((response) => {
         this.items = response.data;
+
+        // Calcula e injeta a propriedade 'resultado_acumulado' em todos os itens
+        this.items.forEach(item => {
+          this.calcularResultadoAcumulado(item);
+        });        
+
         this.symbols = [...new Set(this.items.map(item => item.Ticker.nome))];
         this.fetchMultipleStockQuotes();
-        console.log(this.symbols);
+        // console.log(this.symbols);
       });
     },
     

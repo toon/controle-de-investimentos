@@ -44,10 +44,22 @@ const routes = [
     meta: { title: "Proventos" }
   },
   {
+    path: "/opcoes/taxa",
+    name: "operacaotaxa",
+    component: () => import("../views/OperacoesTaxaView.vue"),
+    meta: { title: "Operacao de Taxa" }
+  },
+  {
     path: "/carteiras/dashboard",
     name: "dashboard",
     component: () => import("../views/DashboardView.vue"),
     meta: { title: "Dashboard" }
+  },
+    {
+    path: "/operacoestaxastatus",
+    name: "operacoestaxastatus",
+    component: () => import("../views/OperacoesTaxaStatusView.vue"),
+    meta: { title: "Status Op. Taxa" }
   },
   {
     path: "/tiposoperacao",
@@ -78,6 +90,12 @@ const routes = [
     name: "posicoes",
     component: () => import("../views/PosicoesView.vue"),
     meta: { title: "Posições" }
+  },
+  {
+    path: "/opcoes/taxa/caixa/:id?",
+    name: "caixa",
+    component: () => import("../views/CaixasOperacaoTaxaView.vue"),
+    meta: { title: "Caixas de Operação de Taxa" }
   },
   {
     path: "/tiposopcaooperacoes",

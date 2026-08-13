@@ -1,0 +1,317 @@
+<!-- eslint-disable vue/valid-v-slot -->
+<template>
+  <v-data-table
+    :headers="headers"
+    :items="items"
+    :sort-by="[{ key: 'id', order: 'asc' }]"
+  >
+    <template v-slot:top>
+      <v-toolbar
+        flat
+      >
+        <v-toolbar-title><v-icon>mdi-cog</v-icon> Operações de Taxa</v-toolbar-title>
+        <v-divider
+          class="mx-4"
+          inset
+          vertical
+        ></v-divider>
+        <v-spacer></v-spacer>
+        <v-dialog
+          v-model="dialog"
+          max-width="500px"
+        >
+          <template v-slot:activator="{ props }">
+            <v-btn
+              class="mb-2"
+              color="primary"
+              dark
+              v-bind="props"
+            >
+              Novo item
+            </v-btn>
+          </template>
+          <v-card>
+            <v-card-title>
+              <span class="text-h5">{{ formTitle }}</span>
+            </v-card-title>
+
+            <v-card-text>
+              <v-container>
+                <v-row>
+                  <v-col
+                    cols="12"
+                    md="12"
+                    sm="12"
+                  >
+                    <v-text-field
+                      v-model="editedItem.nome"
+                      label="Tipo de Ativo"
+                    ></v-text-field>
+                  </v-col>
+
+                  <v-col
+                    cols="12"
+                    md="4"
+                    sm="6"
+                  >
+                    <v-checkbox
+                      v-model="editedItem.ativo"
+                      label="Ativo?"
+                    ></v-checkbox>
+                  </v-col>
+                </v-row>
+              </v-container>
+            </v-card-text>
+
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn
+                color="blue-darken-1"
+                variant="text"
+                @click="close"
+              >
+                Cancelar
+              </v-btn>
+              <v-btn
+                color="blue-darken-1"
+                variant="text"
+                @click="save"
+              >
+                Salvar
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+        <v-dialog v-model="dialogDelete" max-width="500px">
+          <v-card>
+            <v-card-title class="text-h5">Confirma exclusão este item?</v-card-title>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn color="blue-darken-1" variant="text" @click="closeDelete">Cancelar</v-btn>
+              <v-btn color="blue-darken-1" variant="text" @click="deleteItemConfirm">OK</v-btn>
+              <v-spacer></v-spacer>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+      </v-toolbar>
+
+      <MenuOpcoes />
+
+    </template>
+
+    <template v-slot:item.data_abertura="{ item }">
+      {{ $formatDate(item.data_abertura) }}
+    </template>
+
+    <template v-slot:item.data_encerramento="{ item }">
+      {{ $formatDate(item.data_encerramento) }}
+    </template>
+
+    <template v-slot:item.saldo_caixa="{ item }">
+      <span v-if="saldos[item.id] !== undefined">
+        {{ $formatCurrency(saldos[item.id], 1) }}
+      </span>
+      <v-progress-circular v-else indeterminate size="16" width="2"></v-progress-circular>
+    </template>
+
+    <template v-slot:item.actions="{ item }">
+      <v-icon
+        class="me-1"
+        
+        @click="gotoCaixa(item)"
+        title="Gerenciar caixa"
+      >
+        mdi-currency-usd
+      </v-icon>
+      <v-icon
+        class="me-1"
+        
+        @click="editItem(item)"
+        title="Editar"
+      >
+        mdi-pencil
+      </v-icon>
+      <v-icon
+        
+        @click="deleteItem(item)"
+        title="Excluir"
+      >
+        mdi-delete
+      </v-icon>
+    </template>
+
+    <template v-slot:no-data>
+      <v-btn
+        color="primary"
+        @click="loadItems"
+      >
+        Recarregar
+      </v-btn>
+    </template>
+  </v-data-table>
+</template>
+<script>
+import MenuOpcoes from "@/components/MenuOpcoes.vue";
+import api from "../services/api";
+
+export default {
+  components: {
+    MenuOpcoes,
+  },
+  data: () => ({
+    items: [],
+    saldos: {},
+    headers: [
+      { title: "Cód", value: "id", key: "id" },
+      { title: "Status", key: "status", align: "center", value: "OperacaoTaxaStatus.nome" },
+      { title: "Ativo", key: "ativo", align: "center", value: "Ticker.nome" },
+      { title: "Data início", key: "data_abertura", align: "center", value: "data_abertura" },
+      { title: "Data fechamento", key: "data_encerramento", align: "center", value: "data_encerramento" },
+      { title: "Caixa (Saldo)", key:"saldo_caixa", align: "center", sortable: false },
+      { title: "Descrição", key:"nome", value: "nome" },
+      { title: "Ações", value: "actions", align: "end", sortable: false },
+    ],
+    dialog: false,
+    dialogDelete: false,
+    editedIndex: -1,
+    editedItem: {
+      nome: '',
+      MoedaId: '',
+    },
+    defaultItem: {
+      nome: '',
+      MoedaId: 1,
+    },
+    rules: {
+      required: value => !!value || 'Campo obrigatório',
+      data: value => /^([0-2][0-9]|(3)[0-1])\/([0][1-9]|1[0-2])\/\d{4}$/.test(value) || 'Data inválida',
+    },
+  }),
+
+  computed: {
+    formTitle () {
+      return this.editedIndex === -1 ? 'Novo item' : 'Editar item'
+    }
+  },
+
+  watch: {
+    dialog (val) {
+      val || this.close()
+    },
+    dialogDelete (val) {
+      val || this.closeDelete()
+    },
+  },
+
+  created() {
+    this.loadItems();
+    this.loadmoedas();
+  },
+
+  methods: {
+
+    gotoCaixa (item) {
+      this.$router.push({ name: 'caixa', params: { id: item.id } });
+    },
+    
+
+    // Método para carregar os tipos de operação da API
+    loadmoedas() {
+      api.get("/moeda").then((response) => {
+        this.moedas = response.data;
+        console.log(this.moedas);
+      }).catch(error => {
+        console.error("Erro ao carregar moedas:", error);
+      });
+    },
+
+    // Novo método para buscar o último saldo do modelo CaixaOperacaoTaxa
+      async fetchUltimoSaldo(itemId) {
+        try {
+          // Faz a chamada ao endpoint /last. 
+          // IMPORTANTE: Assumi que seu backend aceita um filtro para saber de QUAL operação buscar o último saldo.
+          const response = await api.get(`/caixaoperacaotaxa/last?TipoOperacaoTaxaId=${itemId}`);
+          
+          if (response.data && response.data.saldo !== undefined) {
+            // Usamos o ID do item como chave para o objeto de saldos
+            this.saldos[itemId] = response.data.saldo;
+          } else {
+            this.saldos[itemId] = 0;
+          }
+        } catch (error) {
+          console.error(`Erro ao buscar saldo da operação ${itemId}:`, error);
+          this.saldos[itemId] = 0;
+        }
+      },
+
+      loadItems() {
+        api.get("/tipooperacaotaxas").then((response) => {
+          this.items = response.data;
+          
+          // Limpa os saldos anteriores
+          this.saldos = {};
+
+          // Para cada item carregado na tabela, dispara a busca do último saldo
+          this.items.forEach(item => {
+            this.fetchUltimoSaldo(item.id);
+          });
+        });
+      },
+      
+    // loadItems() {
+    //   api.get("/tipooperacaotaxas").then((response) => {
+    //     this.items = response.data;
+    //     console.log(this.items);
+    //   });
+    // },
+    
+    editItem (item) {
+      this.editedIndex = this.items.indexOf(item)
+      this.editedItem = Object.assign({}, item)
+      this.dialog = true
+    },
+
+    deleteItem (item) {
+      this.editedIndex = this.items.indexOf(item)
+      this.editedItem = Object.assign({}, item)
+      this.dialogDelete = true
+    },
+
+    deleteItemConfirm () {
+      api.delete(`/tipooperacaotaxa/${this.editedItem.id}`).then(() => 
+        this.loadItems(),
+        this.closeDelete()
+      );
+    },
+
+    close () {
+      this.dialog = false
+      this.$nextTick(() => {
+        this.editedItem = Object.assign({}, this.defaultItem)
+        this.editedIndex = -1
+      })
+    },
+
+    closeDelete () {
+      this.dialogDelete = false
+      this.$nextTick(() => {
+        this.editedItem = Object.assign({}, this.defaultItem)
+        this.editedIndex = -1
+      })
+    },
+
+    save () {
+      if (this.editedIndex > -1) {
+        api.put(`/tipooperacaotaxa/${this.editedItem.id}`, this.editedItem).then(() => 
+          this.loadItems()
+        )
+      } else {
+        api.post("/tipooperacaotaxa", this.editedItem).then(() => 
+          this.loadItems()
+        )
+      }
+      this.close()
+    },
+  },
+}
+</script>
