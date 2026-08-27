@@ -50,7 +50,7 @@ export default {
         try {
             const numValue = Number(value);
             if (isNaN(numValue)) {
-                console.warn('Valor não é um número:', value);
+                //console.warn('Valor não é um número:', value);
                 return value;
             }
             

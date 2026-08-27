@@ -284,6 +284,14 @@
           <span v-if="item.Ticker.MoedaId != 1">
             <br />{{ $formatCurrency((item.proventos) * this.dolar, 1) }}
           </span>        
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props">
+                  <small><span style="color: #666;"><br />({{ $formatCurrency(item.ultimo_provento, item.Ticker.MoedaId) }} {{ item.ultimo_provento && item.investido ? (item.ultimo_provento/item.investido * 100).toFixed(2) + "%" : ''}})</span></small>
+                </span>
+              </template>
+              <div>Último provento e seu DY</div>
+            </v-tooltip>
       </template>
       <template v-slot:item.hoje="{ item }">
         <v-chip :style="{ color: item.hoje < 0 ? 'red' : 'green' }">
@@ -705,6 +713,7 @@ export default {
     tiposAtivoClassificacao: [],
     tiposAtivoAgrupamento: [],
     multipleProventos: [],
+    multipleUltimosProventos: [],
     multiplePosicoes: [],
     headers: [ 
       // Adicionei coluna de Carteira opcional
@@ -1024,6 +1033,10 @@ export default {
     },
     multipleProventos: {
       handler(novoValor) { this.atualizaProventos(); },
+      deep: true
+    },
+    multipleUltimosProventos: {
+      handler(novoValor) { this.atualizaUltimosProventos(); },
       deep: true
     },
     multiplePosicoes: {
@@ -1355,6 +1368,21 @@ export default {
       });
     },
 
+    atualizaUltimosProventos() {
+      this.items = this.items.map(item => {
+        const ultimo = this.multipleUltimosProventos.find(
+          p => Number(p.TickerId ?? p.ticker ?? p.Ticker?.id) === Number(item.Ticker.id)
+        );
+
+        return {
+          ...item,
+          ultimo_provento: ultimo
+            ? Number(ultimo.total ?? ultimo.valor_total ?? ultimo.valor ?? ultimo.total_provento ?? 0)
+            : 0
+        };
+      });
+    },    
+
     atualizaPosicoes() {
       this.items = this.items.map(item => {
           const posicao = this.multiplePosicoes.find(c => c.tickerId == item.Ticker.id);
@@ -1405,6 +1433,18 @@ export default {
         });
       } catch (error) {
         console.error('Erro ao buscar múltiplos proventos:', error);
+      }
+    },
+
+    // Método para buscar o último provento de cada ativo
+    async fetchMultipleUltimosProventos() {
+      if (!this.symbols) return;
+      try {
+        api.get(`/Provento/last-by-group?groupBy=TickerId&orderBy=id`).then((response) => {
+          this.multipleUltimosProventos = response.data;
+        });
+      } catch (error) {
+        console.error('Erro ao buscar últimos proventos:', error);
       }
     },
 
@@ -1473,7 +1513,9 @@ export default {
         this.symbols_id = this.items.map(item => item.Ticker.id);
         this.fetchMultipleStockQuotes();
         this.fetchMultipleProventos();
+        this.fetchMultipleUltimosProventos();
         this.fetchMultiplePosicoes();
+        console.log("Itens carregados:", this.items);
       });
       // Carrega tickers e carteiras para os filtros
       api.get(`/ticker`).then((response) => {
@@ -1482,6 +1524,7 @@ export default {
       api.get(`/carteira`).then((response) => {
         this.carteiras = response.data;
       });
+      
     },
 
     loadTiposAtivo() {
