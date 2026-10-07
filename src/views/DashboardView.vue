@@ -283,8 +283,20 @@
         {{ $formatCurrency(item.proventos, item.Ticker.MoedaId) }}
           <span v-if="item.Ticker.MoedaId != 1">
             <br />{{ $formatCurrency((item.proventos) * this.dolar, 1) }}
-          </span>        
-            <v-tooltip location="top">
+          </span>
+            <v-tooltip v-if="item.proventos > 0" location="top" text="Ver proventos">
+              <template v-slot:activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  flat
+                  icon="mdi-cash"
+                  density="compact"
+                  size="small"
+                  :to="{ path: '/carteiras/proventos', query: { ticker: item.Ticker.nome } }"
+                ></v-btn>
+              </template>
+            </v-tooltip>          
+            <v-tooltip location="top" v-if="item.Ticker.TipoAtivoId == 2">
               <template v-slot:activator="{ props }">
                 <span v-bind="props">
                   <small><span style="color: #666;"><br />({{ $formatCurrency(item.ultimo_provento, item.Ticker.MoedaId) }} {{ item.ultimo_provento && item.investido ? (item.ultimo_provento/item.investido * 100).toFixed(2) + "%" : ''}})</span></small>

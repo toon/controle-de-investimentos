@@ -362,13 +362,33 @@ export default {
       ];
     },
 
+    // filteredItems() {
+    //   return this.items.filter(item => {
+    //     const matchesData = !this.filters.data || 
+    //       this.$formatDate(item.data).includes(this.filters.data);
+        
+    //     const matchesTicker = !this.filters.ticker || this.filters.ticker.length === 0 ||
+    //       this.filters.ticker.includes(item.TickerId);
+        
+    //     const matchesTipoProvento = !this.filters.tipoProvento || this.filters.tipoProvento.length === 0 ||
+    //       this.filters.tipoProvento.includes(item.TipoProventoId);
+        
+    //     const matchesCarteira = !this.filters.carteiras || this.filters.carteiras.length === 0 ||
+    //       this.filters.carteiras.includes(item.CarteiraId);
+
+    //     return matchesData && matchesTicker && matchesTipoProvento && matchesCarteira;
+    //   });
+    // },
+
     filteredItems() {
       return this.items.filter(item => {
         const matchesData = !this.filters.data || 
           this.$formatDate(item.data).includes(this.filters.data);
         
+        // ✅ Aceita tanto o ID (quando selecionado na tela) quanto o Nome (quando vem da URL)
         const matchesTicker = !this.filters.ticker || this.filters.ticker.length === 0 ||
-          this.filters.ticker.includes(item.TickerId);
+          this.filters.ticker.includes(item.TickerId) ||
+          this.filters.ticker.includes(item.Ticker?.nome);
         
         const matchesTipoProvento = !this.filters.tipoProvento || this.filters.tipoProvento.length === 0 ||
           this.filters.tipoProvento.includes(item.TipoProventoId);
@@ -379,8 +399,6 @@ export default {
         return matchesData && matchesTicker && matchesTipoProvento && matchesCarteira;
       });
     },
-
-
   },
 
   watch: {
@@ -416,6 +434,7 @@ export default {
       };
     },
 
+/*
     loadPersistentFilters() {
       const persistentFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
       if (persistentFilters) {
@@ -426,7 +445,52 @@ export default {
           localStorage.removeItem(FILTERS_STORAGE_KEY);
         }
       }
-    },
+    }, */
+
+    loadPersistentFilters() {
+      // 1. Carrega os filtros persistidos no localStorage (se existirem)
+      const persistentFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
+      if (persistentFilters) {
+        try {
+          this.filters = {
+            ...this.filters,
+            ...JSON.parse(persistentFilters)
+          };
+        } catch (e) {
+          console.error('Erro ao carregar filtros salvos:', e);
+          localStorage.removeItem(FILTERS_STORAGE_KEY);
+        }
+      }
+
+      // 2. Aplica os parâmetros vindos da URL
+      const query = this.$route?.query;
+      if (query && Object.keys(query).length > 0) {
+        
+        // Converte o ticker da URL para Array
+        if (query.ticker) {
+          if (Array.isArray(query.ticker)) {
+            this.filters.ticker = query.ticker;
+          } else if (typeof query.ticker === 'string') {
+            // Suporta ?ticker=CXSE3.SA e também múltiplos separados por vírgula ?ticker=CXSE3.SA,PETR4.SA
+            this.filters.ticker = query.ticker.includes(',')
+              ? query.ticker.split(',').map(t => t.trim())
+              : [query.ticker];
+          }
+        }
+
+        // Aplica os demais filtros da query (se houver outros além de ticker)
+        Object.keys(query).forEach(key => {
+          if (key !== 'ticker') {
+            this.filters[key] = query[key];
+          }
+        });
+
+        // 3. (Opcional) Salva essa nova seleção no storage
+        /*if (typeof this.savePersistentFilters === 'function') {
+          this.savePersistentFilters();
+        }*/
+      }
+    },   
 
     // Método para carregar os tipos de operação da API
     loadtiposProvento() {

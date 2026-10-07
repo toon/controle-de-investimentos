@@ -1,10 +1,11 @@
 <!-- eslint-disable vue/valid-v-slot -->
 <template>
-  <v-data-table
-    :headers="headers"
-    :items="filteredItems"
-    :sort-by="[{ key: 'data', order: 'asc' }]"
-  >
+  <div>
+    <v-data-table
+      :headers="headers"
+      :items="filteredItems"
+      :sort-by="[{ key: 'data', order: 'asc' }]"
+    >
     <template v-slot:top>
       <v-toolbar
         flat
@@ -297,20 +298,31 @@
         </v-card-title>
         <v-card-text class="pa-2" v-if="mostrarCard">
           <v-row dense align="center">
-            <v-col cols="12" sm="2" md="2">
+            <v-col cols="12" sm="6" md="2">
               <v-text-field
-                v-model="filters.data"
-                label="Data"
-                placeholder="dd/mm/aaaa"
+                v-model="filters.dataInicio"
+                label="Data inicial"
+                type="date"
                 clearable
                 density="compact"
                 variant="outlined"
                 hide-details
-                @click:clear="filters.data = ''"
+              ></v-text-field>
+            </v-col>
+
+            <v-col cols="12" sm="6" md="2">
+              <v-text-field
+                v-model="filters.dataFim"
+                label="Data final"
+                type="date"
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
               ></v-text-field>
             </v-col>
             
-            <v-col cols="12" sm="2" md="2">
+            <v-col cols="12" sm="6" md="2">
               <v-autocomplete
                 v-model="filters.carteiras"
                 :items="carteiras"
@@ -327,7 +339,7 @@
               ></v-autocomplete>
             </v-col>
 
-            <v-col cols="12" sm="2" md="2">
+            <v-col cols="12" sm="6" md="2">
               <v-autocomplete
                 v-model="filters.ticker"
                 :items="tickers"
@@ -344,7 +356,7 @@
               ></v-autocomplete>
             </v-col>
             
-            <v-col cols="12" sm="3" md="3">
+            <v-col cols="12" sm="6" md="2">
               <v-autocomplete
                 v-model="filters.tipoOperacao"
                 :items="tiposOperacao"
@@ -361,7 +373,7 @@
               ></v-autocomplete>
             </v-col>
             
-            <v-col cols="12" sm="12" md="3" class="text-left">
+            <v-col cols="12" sm="6" md="2" class="text-left">
               <v-btn
                 color="secondary"
                 variant="outlined"
@@ -439,21 +451,61 @@
         Recarregar
       </v-btn>
     </template>
-  </v-data-table>
+    </v-data-table>
+    <v-card flat class="mb-4">
+      <v-card-title class="text-h6">Valor investido acumulado por mês</v-card-title>
+      <v-card-text>
+        <apexchart
+          v-if="monthlyInvestedData.categories.length"
+          type="area"
+          height="320"
+          :options="monthlyInvestedData.options"
+          :series="monthlyInvestedData.series"
+        ></apexchart>
+        <div v-else class="text-medium-emphasis text-center py-8">
+          Não há operações de compra ou subscrição para exibir nos filtros selecionados.
+        </div>
+        <div v-if="monthlyInvestedData.operacoesSemCotacao" class="text-medium-emphasis text-caption mt-2">
+          {{ monthlyInvestedData.operacoesSemCotacao }} operação(ões) em moeda estrangeira sem cotação foram desconsideradas.
+        </div>
+        <div class="text-medium-emphasis text-caption mt-2">
+          Recompras no dia seguinte, do mesmo ticker e carteira, são tratadas como continuidade da posição até a quantidade vendida.
+        </div>
+      </v-card-text>
+    </v-card>
+    <v-card flat class="mb-4">
+      <v-card-title class="text-h6">Aportes mês a mês</v-card-title>
+      <v-card-text>
+        <apexchart
+          v-if="monthlyInvestedData.categories.length"
+          type="bar"
+          height="320"
+          :options="monthlyInvestedData.monthlyOptions"
+          :series="monthlyInvestedData.monthlySeries"
+        ></apexchart>
+        <div v-else class="text-medium-emphasis text-center py-8">
+          Não há operações de compra ou subscrição para exibir nos filtros selecionados.
+        </div>
+      </v-card-text>
+    </v-card>
+  </div>
 </template>
 <script>
 import api from "../services/api";
 import MenuCarteira from '@/components/MenuCarteira.vue'
+import VueApexCharts from "vue3-apexcharts";
 
 export default {
   components: {
     MenuCarteira,
+    apexchart: VueApexCharts,
   },
   data: () => ({
     mostrarCard: true,
     valid: false,
     filters: {
-      data: '',
+      dataInicio: '',
+      dataFim: '',
       ticker: [],
       tipoOperacao: [],
       carteiras: []
@@ -533,8 +585,12 @@ export default {
 
     filteredItems() {
       return this.items.filter(item => {
-        const matchesData = !this.filters.data || 
-          this.$formatDate(item.data).includes(this.filters.data);
+        const data = new Date(item.data);
+        const dataISO = Number.isNaN(data.getTime()) ? '' : data.toISOString().slice(0, 10);
+        const matchesDataInicio = !this.filters.dataInicio ||
+          (dataISO && dataISO >= this.filters.dataInicio);
+        const matchesDataFim = !this.filters.dataFim ||
+          (dataISO && dataISO <= this.filters.dataFim);
         
         const matchesTicker = !this.filters.ticker || this.filters.ticker.length === 0 ||
           this.filters.ticker.includes(item.TickerId);
@@ -545,8 +601,176 @@ export default {
         const matchesCarteira = !this.filters.carteiras || this.filters.carteiras.length === 0 ||
           this.filters.carteiras.includes(item.CarteiraId);
 
-        return matchesData && matchesTicker && matchesTipoOperacao && matchesCarteira;
+        return matchesDataInicio && matchesDataFim && matchesTicker && matchesTipoOperacao && matchesCarteira;
       });
+    },
+
+    monthlyInvestedData() {
+      const acumuladosPorMes = new Map();
+      const aportesPorMes = new Map();
+      let operacoesSemCotacao = 0;
+      const tickerSelecionados = this.filters.ticker || [];
+      const carteirasSelecionadas = this.filters.carteiras || [];
+      const vendasPorTickerCarteiraDia = new Map();
+      const quantidadeRecompradaPorOperacao = new Map();
+      const operacoesOrdenadas = this.items
+        .filter(item => (
+          (!tickerSelecionados.length || tickerSelecionados.includes(item.TickerId)) &&
+          (!carteirasSelecionadas.length || carteirasSelecionadas.includes(item.CarteiraId))
+        ))
+        .map(item => {
+          const data = new Date(item.data);
+          return {
+            item,
+            data,
+            dia: Number.isNaN(data.getTime())
+              ? null
+              : Math.floor(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate()) / 86400000),
+          };
+        })
+        .filter(operacao => operacao.dia !== null)
+        .sort((a, b) => a.data.getTime() - b.data.getTime());
+
+      operacoesOrdenadas.forEach(({ item, dia }) => {
+        const tipoOperacaoId = Number(item.TipoOperacaoId);
+        const chaveAtivoDia = `${item.CarteiraId}:${item.TickerId}:${dia}`;
+        const quantidade = Math.max(Number(item.quantidade) || 0, 0);
+
+        if (tipoOperacaoId === 2) {
+          vendasPorTickerCarteiraDia.set(
+            chaveAtivoDia,
+            (vendasPorTickerCarteiraDia.get(chaveAtivoDia) || 0) + quantidade
+          );
+        } else if (tipoOperacaoId === 1) {
+          const chaveDiaAnterior = `${item.CarteiraId}:${item.TickerId}:${dia - 1}`;
+          const quantidadeVendida = vendasPorTickerCarteiraDia.get(chaveDiaAnterior) || 0;
+          const quantidadeRecomprada = Math.min(quantidade, quantidadeVendida);
+
+          if (quantidadeRecomprada > 0) {
+            quantidadeRecompradaPorOperacao.set(item, quantidadeRecomprada);
+            vendasPorTickerCarteiraDia.set(chaveDiaAnterior, quantidadeVendida - quantidadeRecomprada);
+          }
+        }
+      });
+
+      this.filteredItems.forEach(item => {
+        const tipoOperacaoId = Number(item.TipoOperacaoId);
+        if (![1, 4].includes(tipoOperacaoId)) return;
+
+        const data = new Date(item.data);
+        if (Number.isNaN(data.getTime())) return;
+
+        const chave = data.getUTCFullYear() * 12 + data.getUTCMonth();
+        const quantidadeOriginal = Number(item.quantidade) || 0;
+        const quantidadeRecomprada = tipoOperacaoId === 1
+          ? quantidadeRecompradaPorOperacao.get(item) || 0
+          : 0;
+        const quantidade = Math.max(quantidadeOriginal - quantidadeRecomprada, 0);
+        if (!quantidade) return;
+
+        const valorUnitario = Number(item.valor_unitario) || 0;
+        const taxas = Number(item.taxas) || 0;
+        const moedaId = Number(item.Ticker?.MoedaId);
+        const cotacaoDolar = Number(item.cotacao_dolar);
+        if (moedaId !== 1 && !(cotacaoDolar > 0)) {
+          operacoesSemCotacao += 1;
+          return;
+        }
+        const fatorConversao = moedaId !== 1 ? cotacaoDolar : 1;
+        const proporcaoInvestida = quantidadeOriginal > 0 ? quantidade / quantidadeOriginal : 0;
+        const valorInvestido = (quantidade * valorUnitario + taxas * proporcaoInvestida) * fatorConversao;
+
+        if (item.operacao_ir !== true) {
+          acumuladosPorMes.set(
+            chave,
+            (acumuladosPorMes.get(chave) || 0) + valorInvestido
+          );
+          aportesPorMes.set(
+            chave,
+            (aportesPorMes.get(chave) || 0) + valorInvestido
+          );
+        }
+      });
+
+      const chavesOrdenadas = [...acumuladosPorMes.keys()].sort((a, b) => a - b);
+      let acumulado = 0;
+      const categories = [];
+      const valoresAcumulados = [];
+      const aportesMensais = [];
+      if (chavesOrdenadas.length) {
+        for (let chave = chavesOrdenadas[0]; chave <= chavesOrdenadas[chavesOrdenadas.length - 1]; chave += 1) {
+          const ano = Math.floor(chave / 12);
+          const mes = chave % 12;
+          const nomeMes = new Date(Date.UTC(ano, mes, 1))
+            .toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' })
+            .replace('.', '');
+          categories.push(`${nomeMes}/${ano}`);
+          const aporteDoMes = aportesPorMes.get(chave) || 0;
+          acumulado += aporteDoMes;
+          valoresAcumulados.push(acumulado);
+          aportesMensais.push(aporteDoMes);
+        }
+      }
+
+      const options = {
+        chart: { type: 'area', toolbar: { show: false }, zoom: { enabled: false } },
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 3 },
+        xaxis: { categories },
+        yaxis: {
+          labels: {
+            formatter: value => value.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+              maximumFractionDigits: 0,
+            }),
+          },
+        },
+        tooltip: {
+          y: {
+            formatter: value => value.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            }),
+          },
+        },
+        colors: ['#1E88E5'],
+      };
+      const mediaAportesMensais = aportesMensais.length
+        ? aportesMensais.reduce((total, aporte) => total + aporte, 0) / aportesMensais.length
+        : 0;
+      const formatarMoeda = value => value.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      });
+
+      return {
+        categories,
+        operacoesSemCotacao,
+        mediaAportesMensais,
+        series: [{ name: 'Valor investido acumulado', data: valoresAcumulados }],
+        options,
+        monthlySeries: [{ name: 'Aportes no mês', data: aportesMensais }],
+        monthlyOptions: {
+          ...options,
+          chart: { ...options.chart, type: 'bar' },
+          stroke: { width: 0 },
+          plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
+          colors: ['#43A047'],
+          annotations: {
+            yaxis: [{
+              y: mediaAportesMensais,
+              borderColor: '#E53935',
+              strokeDashArray: 4,
+              label: {
+                text: `Média: ${formatarMoeda(mediaAportesMensais)}`,
+                borderColor: '#E53935',
+                style: { color: '#fff', background: '#E53935' },
+              },
+            }],
+          },
+        },
+      };
     },
 
   },
@@ -579,7 +803,8 @@ export default {
 
     clearFilters() {
       this.filters = {
-        data: '',
+        dataInicio: '',
+        dataFim: '',
         ticker: [],
         tipoOperacao: [],
         carteiras: []
