@@ -355,6 +355,23 @@
                 hide-details
               ></v-autocomplete>
             </v-col>
+
+            <v-col cols="12" sm="6" md="2">
+              <v-autocomplete
+                v-model="filters.tipoAtivo"
+                :items="tiposAtivo"
+                item-title="nome"
+                item-value="id"
+                label="Tipo de ativo"
+                multiple
+                chips
+                closable-chips
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+              ></v-autocomplete>
+            </v-col>
             
             <v-col cols="12" sm="6" md="2">
               <v-autocomplete
@@ -495,6 +512,8 @@ import api from "../services/api";
 import MenuCarteira from '@/components/MenuCarteira.vue'
 import VueApexCharts from "vue3-apexcharts";
 
+const FILTERS_STORAGE_KEY = 'operacoesFilters';
+
 export default {
   components: {
     MenuCarteira,
@@ -507,10 +526,12 @@ export default {
       dataInicio: '',
       dataFim: '',
       ticker: [],
+      tipoAtivo: [],
       tipoOperacao: [],
       carteiras: []
     },
     tiposOperacao: [], // Armazena os tipos de operação recuperados da API
+    tiposAtivo: [],
     carteiras: [],
     posicoesTicker: [], // Armazena recuperados da API
     Investidores: [], // Armazena recuperados da API
@@ -594,6 +615,11 @@ export default {
         
         const matchesTicker = !this.filters.ticker || this.filters.ticker.length === 0 ||
           this.filters.ticker.includes(item.TickerId);
+
+        const matchesTipoAtivo = !this.filters.tipoAtivo || this.filters.tipoAtivo.length === 0 ||
+          this.filters.tipoAtivo.some(tipoAtivoId =>
+            Number(tipoAtivoId) === Number(item.Ticker?.TipoAtivoId)
+          );
         
         const matchesTipoOperacao = !this.filters.tipoOperacao || this.filters.tipoOperacao.length === 0 ||
           this.filters.tipoOperacao.includes(item.TipoOperacaoId);
@@ -601,7 +627,8 @@ export default {
         const matchesCarteira = !this.filters.carteiras || this.filters.carteiras.length === 0 ||
           this.filters.carteiras.includes(item.CarteiraId);
 
-        return matchesDataInicio && matchesDataFim && matchesTicker && matchesTipoOperacao && matchesCarteira;
+        return matchesDataInicio && matchesDataFim && matchesTicker && matchesTipoAtivo &&
+          matchesTipoOperacao && matchesCarteira;
       });
     },
 
@@ -792,11 +819,19 @@ export default {
         }
       }
     },
+    filters: {
+      handler(newFilters) {
+        localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(newFilters));
+      },
+      deep: true
+    },
   },
 
   created() {
+    this.loadPersistentFilters();
     this.loadItems();
     this.loadTiposOperacao();
+    this.loadTiposAtivo();
   },
 
   methods: {
@@ -806,9 +841,33 @@ export default {
         dataInicio: '',
         dataFim: '',
         ticker: [],
+        tipoAtivo: [],
         tipoOperacao: [],
         carteiras: []
       };
+    },
+
+    loadPersistentFilters() {
+      const persistentFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
+      if (persistentFilters) {
+        try {
+          this.filters = {
+            ...this.filters,
+            ...JSON.parse(persistentFilters)
+          };
+        } catch (error) {
+          console.error('Erro ao carregar filtros salvos:', error);
+          localStorage.removeItem(FILTERS_STORAGE_KEY);
+        }
+      }
+    },
+
+    loadTiposAtivo() {
+      api.get("/tipoativo").then((response) => {
+        this.tiposAtivo = response.data;
+      }).catch(error => {
+        console.error("Erro ao carregar tipos de ativo:", error);
+      });
     },
     
     // Método para carregar os tipos de operação da API

@@ -1,11 +1,12 @@
 <!-- eslint-disable vue/valid-v-slot -->
 <template>
-  <v-data-table
-    :headers="headers"
-    :items="filteredItems"
-    :sort-by="[{ key: 'data', order: 'desc' }]"
-    items-per-page="50"
-  >
+  <div>
+    <v-data-table
+      :headers="headers"
+      :items="filteredItems"
+      :sort-by="[{ key: 'data', order: 'desc' }]"
+      items-per-page="50"
+    >
     <template v-slot:top>
       <v-toolbar
         flat
@@ -17,6 +18,33 @@
           vertical
         ></v-divider>
         <v-spacer></v-spacer>
+
+        <v-btn
+          color="green"
+          icon="mdi-calculator-variant"
+          density="comfortable"
+          @click="dialogSomaProventos = true"
+          title="Somar Proventos Exibidos"
+          class="mr-2"
+        ></v-btn>
+
+        <v-dialog v-model="dialogSomaProventos" max-width="500px">
+          <v-card>
+            <v-card-title class="text-h5">Soma dos Proventos</v-card-title>
+            <v-card-text v-if="proventosTotalPorMoeda.length" class="text-h4 text-center py-4">
+              <div v-for="total in proventosTotalPorMoeda" :key="total.moedaId">
+                {{ $formatCurrency(total.valor, total.moedaId) }}
+              </div>
+            </v-card-text>
+            <v-card-text v-else class="text-center py-4">
+              Nenhum provento para somar.
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn color="blue-darken-1" variant="text" @click="dialogSomaProventos = false">Fechar</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
 
         <v-dialog
           v-model="dialog"
@@ -158,16 +186,29 @@
         </v-card-title>
         <v-card-text class="pa-2" v-if="mostrarCard">
           <v-row dense align="center">
-            <v-col cols="12" sm="2" md="2">
+            <v-col cols="12" sm="6" md="2">
               <v-text-field
-                v-model="filters.data"
-                label="Data"
-                placeholder="dd/mm/aaaa"
+                v-model="filters.dataInicio"
+                label="Data inicial"
+                type="date"
                 clearable
                 density="compact"
                 variant="outlined"
                 hide-details
-                @click:clear="filters.data = ''"
+                @click:clear="filters.dataInicio = ''"
+              ></v-text-field>
+            </v-col>
+
+            <v-col cols="12" sm="6" md="2">
+              <v-text-field
+                v-model="filters.dataFim"
+                label="Data final"
+                type="date"
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+                @click:clear="filters.dataFim = ''"
               ></v-text-field>
             </v-col>
             
@@ -204,8 +245,25 @@
                 hide-details
               ></v-autocomplete>
             </v-col>
+
+            <v-col cols="12" sm="3" md="2">
+              <v-autocomplete
+                v-model="filters.tipoAtivo"
+                :items="tiposAtivo"
+                item-title="nome"
+                item-value="id"
+                label="Tipo de ativo"
+                multiple
+                chips
+                closable-chips
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+              ></v-autocomplete>
+            </v-col>
             
-            <v-col cols="12" sm="3" md="3">
+            <v-col cols="12" sm="3" md="2">
               <v-autocomplete
                 v-model="filters.tipoProvento"
                 :items="tiposProvento"
@@ -222,7 +280,7 @@
               ></v-autocomplete>
             </v-col>
             
-            <v-col cols="12" sm="12" md="3" class="text-left">
+            <v-col cols="12" sm="12" md="2" class="text-left">
               <v-btn
                 color="secondary"
                 variant="outlined"
@@ -278,29 +336,51 @@
         Recarregar
       </v-btn>
     </template>
-  </v-data-table>
+    </v-data-table>
+    <v-card flat class="mb-4">
+      <v-card-title class="text-h6">Proventos mês a mês</v-card-title>
+      <v-card-text>
+        <apexchart
+          v-if="monthlyProventosData.categories.length"
+          type="bar"
+          height="320"
+          :options="monthlyProventosData.options"
+          :series="monthlyProventosData.series"
+        ></apexchart>
+        <div v-else class="text-medium-emphasis text-center py-8">
+          Não há proventos para exibir nos filtros selecionados.
+        </div>
+      </v-card-text>
+    </v-card>
+  </div>
 </template>
 <script>
 import api from "../services/api";
 // import { format, parseISO } from 'date-fns';
 // import { ptBR } from 'date-fns/locale';
 import MenuCarteira from '@/components/MenuCarteira.vue'
+import VueApexCharts from "vue3-apexcharts";
 
 const FILTERS_STORAGE_KEY = 'proventosFilters';
 
 export default {
   components: {
     MenuCarteira,
+    apexchart: VueApexCharts,
   },
   data: () => ({
     mostrarCard: true,
+    dialogSomaProventos: false,
     filters: {
-      data: '',
+      dataInicio: '',
+      dataFim: '',
       ticker: [],
+      tipoAtivo: [],
       tipoProvento: [],
       carteiras: []
     },
     tiposProvento: [], // Armazena os tipos de operação recuperados da API
+    tiposAtivo: [],
     valid: false,
     // carteiraid: null,
     CarteiraNome: "carregando...",
@@ -382,13 +462,27 @@ export default {
 
     filteredItems() {
       return this.items.filter(item => {
-        const matchesData = !this.filters.data || 
-          this.$formatDate(item.data).includes(this.filters.data);
+        const data = new Date(item.data);
+        const dataISO = typeof item.data === 'string' && /^\d{4}-\d{2}-\d{2}/.test(item.data)
+          ? item.data.slice(0, 10)
+          : Number.isNaN(data.getTime()) ? '' : data.toISOString().slice(0, 10);
+        const matchesDataInicio = !this.filters.dataInicio ||
+          (dataISO && dataISO >= this.filters.dataInicio);
+        const matchesDataFim = !this.filters.dataFim ||
+          (dataISO && dataISO <= this.filters.dataFim);
         
         // ✅ Aceita tanto o ID (quando selecionado na tela) quanto o Nome (quando vem da URL)
         const matchesTicker = !this.filters.ticker || this.filters.ticker.length === 0 ||
           this.filters.ticker.includes(item.TickerId) ||
           this.filters.ticker.includes(item.Ticker?.nome);
+
+        const tiposAtivoSelecionados = Array.isArray(this.filters.tipoAtivo)
+          ? this.filters.tipoAtivo
+          : this.filters.tipoAtivo ? [this.filters.tipoAtivo] : [];
+        const matchesTipoAtivo = tiposAtivoSelecionados.length === 0 ||
+          tiposAtivoSelecionados.some(tipoAtivoId =>
+            Number(tipoAtivoId) === Number(item.Ticker?.TipoAtivoId)
+          );
         
         const matchesTipoProvento = !this.filters.tipoProvento || this.filters.tipoProvento.length === 0 ||
           this.filters.tipoProvento.includes(item.TipoProventoId);
@@ -396,8 +490,107 @@ export default {
         const matchesCarteira = !this.filters.carteiras || this.filters.carteiras.length === 0 ||
           this.filters.carteiras.includes(item.CarteiraId);
 
-        return matchesData && matchesTicker && matchesTipoProvento && matchesCarteira;
+        return matchesDataInicio && matchesDataFim && matchesTicker && matchesTipoAtivo &&
+          matchesTipoProvento && matchesCarteira;
       });
+    },
+
+    proventosTotalPorMoeda() {
+      const totais = new Map();
+      this.filteredItems.forEach(item => {
+        const moedaId = item.Ticker?.MoedaId;
+        const valor = Number(item.total);
+        totais.set(moedaId, (totais.get(moedaId) || 0) + valor);
+      });
+
+      return Array.from(totais, ([moedaId, valor]) => ({ moedaId, valor }));
+    },
+
+    monthlyProventosData() {
+      const totaisPorMesEMoeda = new Map();
+      const moedas = new Set();
+      const meses = new Set();
+
+      this.filteredItems.forEach(item => {
+        const data = new Date(item.data);
+        const valor = Number(item.total);
+        if (Number.isNaN(data.getTime()) || !Number.isFinite(valor)) return;
+
+        const mes = data.getUTCFullYear() * 12 + data.getUTCMonth();
+        const moedaId = item.Ticker?.MoedaId;
+        const chave = `${mes}:${moedaId}`;
+        totaisPorMesEMoeda.set(chave, (totaisPorMesEMoeda.get(chave) || 0) + valor);
+        moedas.add(moedaId);
+        meses.add(mes);
+      });
+
+      const mesesOrdenados = [...meses].sort((a, b) => a - b);
+      const categories = [];
+      if (mesesOrdenados.length) {
+        for (let mes = mesesOrdenados[0]; mes <= mesesOrdenados[mesesOrdenados.length - 1]; mes += 1) {
+          const ano = Math.floor(mes / 12);
+          const mesDoAno = mes % 12;
+          const nomeMes = new Date(Date.UTC(ano, mesDoAno, 1))
+            .toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' })
+            .replace('.', '');
+          categories.push(`${nomeMes}/${ano}`);
+        }
+      }
+
+      const moedasOrdenadas = [...moedas].sort((a, b) => Number(a) - Number(b));
+      const series = moedasOrdenadas.map(moedaId => ({
+        name: Number(moedaId) === 1
+          ? 'BRL'
+          : Number(moedaId) === 2 ? 'USD' : `Moeda ${moedaId}`,
+        data: mesesOrdenados.length
+          ? Array.from(
+            { length: mesesOrdenados[mesesOrdenados.length - 1] - mesesOrdenados[0] + 1 },
+            (_, index) => totaisPorMesEMoeda.get(`${mesesOrdenados[0] + index}:${moedaId}`) || 0
+          )
+          : [],
+      }));
+      const chartColors = ['#43A047', '#1E88E5', '#FB8C00', '#8E24AA'];
+      const averageLines = series.map((serie, index) => {
+        const average = serie.data.length
+          ? serie.data.reduce((total, value) => total + value, 0) / serie.data.length
+          : 0;
+
+        return {
+          y: average,
+          borderColor: chartColors[index % chartColors.length],
+          strokeDashArray: 4,
+          label: {
+            text: `Média ${serie.name}: ${this.$formatCurrency(average, moedasOrdenadas[index])}`,
+            borderColor: chartColors[index % chartColors.length],
+            style: { color: '#fff', background: chartColors[index % chartColors.length] },
+          },
+        };
+      });
+
+      return {
+        categories,
+        series,
+        options: {
+          chart: { type: 'bar', toolbar: { show: false }, zoom: { enabled: false } },
+          dataLabels: { enabled: false },
+          stroke: { width: 0 },
+          plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
+          annotations: { yaxis: averageLines },
+          xaxis: { categories },
+          yaxis: {
+            labels: {
+              formatter: value => value.toLocaleString('pt-BR', { maximumFractionDigits: 0 }),
+            },
+          },
+          tooltip: {
+            y: {
+              formatter: (value, { seriesIndex }) =>
+                this.$formatCurrency(value, moedasOrdenadas[seriesIndex]),
+            },
+          },
+          colors: chartColors,
+        },
+      };
     },
   },
 
@@ -421,14 +614,17 @@ export default {
     // this.carteiraid = this.$route.params.id;
     this.loadItems();
     this.loadtiposProvento();
+    this.loadTiposAtivo();
   },
 
   methods: {
 
     clearFilters() {
       this.filters = {
-        data: '',
+        dataInicio: '',
+        dataFim: '',
         ticker: [],
+        tipoAtivo: [],
         tipoProvento: [],
         carteiras: []
       };
@@ -499,6 +695,14 @@ export default {
         // console.log(this.tiposProvento);
       }).catch(error => {
         console.error("Erro ao carregar tipos de operação:", error);
+      });
+    },
+
+    loadTiposAtivo() {
+      api.get("/tipoativo").then((response) => {
+        this.tiposAtivo = response.data;
+      }).catch(error => {
+        console.error("Erro ao carregar tipos de ativo:", error);
       });
     },
 
