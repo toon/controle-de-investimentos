@@ -154,6 +154,17 @@
             </v-btn>
           </v-col>
         </v-row>
+        <v-row dense>
+          <v-col cols="12" sm="6">
+            <v-checkbox
+              v-model="filters.exibirQuantidadeZero"
+              label="Exibir ativos com quantidade zero"
+              density="compact"
+              hide-details
+              @update:modelValue="applyFilters"
+            ></v-checkbox>
+          </v-col>
+        </v-row>
       </v-card-text>
     </v-card>
 
@@ -709,7 +720,8 @@ export default {
       carteiras: [], // Novo filtro de carteiras
       tipoAtivo: [],      // NOVO: Array para múltipla escolha
       classificacao: null, // NOVO: Valor único (ou mude para [] se quiser múltiplo também)
-      agrupamento: null // NOVO
+      agrupamento: null, // NOVO
+      exibirQuantidadeZero: false
     },
     carteiras: [],
     tickers: [],
@@ -855,7 +867,9 @@ export default {
             matchesAgrupamento = item.Ticker.TipoAtivoAgrupamentoId === filtros.agrupamento;
         }
 
-        return matchesTicker && matchesCarteira && matchesTipo && matchesClassificacao && matchesAgrupamento;
+        const matchesQuantidade = filtros.exibirQuantidadeZero === true || Number(item.quantidade) !== 0;
+
+        return matchesTicker && matchesCarteira && matchesTipo && matchesClassificacao && matchesAgrupamento && matchesQuantidade;
       })
     },
     
@@ -1110,7 +1124,7 @@ export default {
       const persistentFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
       if (persistentFilters) {
         try {
-          this.filters = JSON.parse(persistentFilters);
+          this.filters = { ...this.filters, ...JSON.parse(persistentFilters) };
           this.applyFilters();
         } catch (e) {
           console.error('Erro ao carregar filtros salvos:', e);
@@ -1329,7 +1343,8 @@ export default {
         carteiras: [], 
         tipoAtivo: [], 
         classificacao: null,
-        agrupamento: null
+        agrupamento: null,
+        exibirQuantidadeZero: false
       }
       this.limparFiltros('dashboard')
     },
